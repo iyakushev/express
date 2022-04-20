@@ -1,0 +1,12 @@
+[package]
+name = "execfn"
+version = "0.1.0"
+edition = "2021"
+description = "A collection of usefull execution related functions"
+authors = ["iy <iamero7@gmail.com>"]
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
