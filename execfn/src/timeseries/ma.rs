@@ -41,7 +41,7 @@ mod test {
     // of a RingBuffer.
 
     #[test]
-    pub fn test_smaller_window() {
+    pub fn test_smaller_slices() {
         let price = vec![1.0, 2.0];
         let time_s = vec![1.0, 2.0];
         let window = 15.0;
@@ -65,7 +65,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_vec_pass() {
+    pub fn test_range_inclusivity() {
         // NOTE(iy): 3 seconds must be passed for computation
         let price = vec![10.0, 11.0, 12.0, 13.0];
         let time_s = vec![0.0, 0.9, 3.0, 4.0];
