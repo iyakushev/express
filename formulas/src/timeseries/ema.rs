@@ -1,3 +1,5 @@
+use super::TimeStep;
+
 /**
 Computes exponential moving average over arbitrary slice
 : price, time -- represent each corresponding axes of market data. They must have matching size.
@@ -7,17 +9,17 @@ Computes exponential moving average over arbitrary slice
 # Formula
 [EMA Formula](https://wikimedia.org/api/rest_v1/media/math/render/svg/05d06bdbee2c14031fd91ead6f5f772aec1ec964)
 */
-pub fn ema(price: &[f64], time: &[f64], lookback: f64) -> Option<f64> {
-    let last_tick = time.last()?;
+pub fn ema(ts_buffer: &[TimeStep], lookback: f64) -> Option<f64> {
+    let last_tick = ts_buffer.last()?.time;
     // NOTE(iy): Should this case be cumultive in behavor? E.g. CMA
-    if lookback > (last_tick - time.first()?) || price.len() != time.len() {
+    if lookback > (last_tick - ts_buffer.first()?.time) {
         return None;
     }
 
     let mut cumdt = 0.0f64;
     let mut value = 0.0f64;
     let mut expsum = 0.0f64;
-    for (pos, p) in price.iter().skip(1).rev().enumerate() {
+    for (pos, p) in ts_buffer.iter().skip(1).rev().enumerate() {
         if cumdt < lookback {
             return Some(value / expsum);
         }
