@@ -1,5 +1,6 @@
 use once_cell::sync::Lazy;
 use slice_deque::SliceDeque;
+
 #[derive(Debug, Copy, Clone)]
 pub struct TimeStep {
     pub price: f64,
@@ -11,7 +12,8 @@ It accumulates ticks over time into the inner ring buffer
 and computes specified functions on it.
 */
 #[allow(dead_code)]
-static TIME_SERIES: Lazy<SliceDeque<TimeStep>> = Lazy::new(|| SliceDeque::with_capacity(100));
+pub static TIME_SERIES: Lazy<SliceDeque<TimeStep>> = Lazy::new(|| SliceDeque::with_capacity(100));
+pub type TimeSeries = SliceDeque<TimeStep>;
 
 /**
 Fills time series with values just like `vec![...]`.
@@ -21,6 +23,7 @@ Fills time series with values just like `vec![...]`.
 #[cfg(test)]
 #[macro_export]
 macro_rules! fill_ts {
+
     [$($val:expr); +$(,)?] => {
         {
             let mut stack = TimeSeries::with_capacity(10);
