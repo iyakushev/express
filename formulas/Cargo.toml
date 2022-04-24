@@ -11,4 +11,3 @@ crate-type = ["lib"]
 
 [dependencies]
 slice-deque = "0.3.0"
-once_cell = "1.10.0"

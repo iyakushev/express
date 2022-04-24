@@ -3,10 +3,13 @@
 version = 3
 
 [[package]]
+name = "express"
+version = "0.1.0"
+
+[[package]]
 name = "formula"
 version = "0.1.0"
 dependencies = [
- "once_cell",
  "slice-deque",
 ]
 
@@ -24,12 +27,6 @@ checksum = "b823e83b2affd8f40a9ee8c29dbc56404c1e34cd2710921f2801e2cf29527afa"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "once_cell"
-version = "1.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
 
 [[package]]
 name = "slice-deque"

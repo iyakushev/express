@@ -1,4 +1,3 @@
-use once_cell::sync::Lazy;
 use slice_deque::SliceDeque;
 
 #[derive(Debug, Copy, Clone)]
@@ -12,7 +11,6 @@ It accumulates ticks over time into the inner ring buffer
 and computes specified functions on it.
 */
 #[allow(dead_code)]
-pub static TIME_SERIES: Lazy<SliceDeque<TimeStep>> = Lazy::new(|| SliceDeque::with_capacity(100));
 pub type TimeSeries = SliceDeque<TimeStep>;
 
 /**
