@@ -1,5 +1,5 @@
-use std::{fmt, iter::Peekable};
 use core::str::Chars;
+use std::{fmt, iter::Peekable};
 
 /// An error reported by the parser.
 #[derive(Debug, Clone, PartialEq)]
@@ -34,9 +34,6 @@ impl std::error::Error for ParseError {
     }
 }
 
-
-
-
 /// Mathematical operations.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operation {
@@ -64,37 +61,64 @@ pub enum Token {
     Error(ParseError),
 }
 
-
-struct Lexer<'l>{
-    tokstream: Peekable<Chars<'l>>
+struct Lexer<'l> {
+    source: Peekable<Chars<'l>>,
+    lineno: usize,
+    column: usize,
 }
 
-impl<'l> Lexer<'l>{
-
-    /// Reads input string and produces token iterator
-    pub fn tokenize(input: &str) -> impl Iterator + '_ {
-        let mut lex = Lexer {
-            tokstream: input.chars().into_iter().peekable()
-        };
-        lex.tokstream.map(|current_char| {
-            match current_char {
-                '+' => Token::Binary(Operation::Plus),
-                '-' => Token::Binary(Operation::Minus),
-                '*' => Token::Binary(Operation::Pow),
-                '/' => Token::Binary(Operation::Div),
-                '%' => Token::Binary(Operation::Rem),
-                '!' => Token::Binary(Operation::Fact),
-                'A'..='Z' | 'a'..='z' => unimplemented!(),
-                '1'..='9' => unimplemented!(),
-                '(' => Token::LParen,
-                ')' => Token::RParen,
-                ',' => Token::Comma,
-                _ => Token::Error(ParseError::UnexpectedToken(current_char))
-            }
-        }).peekable()
+impl<'l> Lexer<'l> {
+    pub fn new(source: &'l str) -> Self {
+        Self {
+            source: source.chars().peekable(),
+            lineno: 1,
+            column: 1,
+        }
     }
 }
 
+impl<'l> Lexer<'l> {
+    fn consume_num(&mut self, first_char: char) {}
+}
+
+impl<'l> Iterator for Lexer<'l> {
+    type Item = Token;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let mut current_char = self.source.next()?;
+        self.column += 1;
+        while current_char.is_whitespace() {
+            if current_char == '\n' {
+                self.column = 1;
+                self.lineno += 1;
+            }
+            current_char = self.source.next()?;
+            self.column += 1;
+        }
+        let tok = match current_char {
+            '+' => Token::Binary(Operation::Plus),
+            '-' => Token::Binary(Operation::Minus),
+            '*' => {
+                if let Some('*') = self.source.peek() {
+                    self.column += 1;
+                    return Some(Token::Binary(Operation::Pow));
+                }
+                Token::Binary(Operation::Times)
+            }
+            '/' => Token::Binary(Operation::Div),
+            '%' => Token::Binary(Operation::Rem),
+            '!' => Token::Binary(Operation::Fact),
+            'A'..='Z' | 'a'..='z' => unimplemented!(),
+            '1'..='9' => unimplemented!(),
+            '(' => Token::LParen,
+            ')' => Token::RParen,
+            ',' => Token::Comma,
+            _ => Token::Error(ParseError::UnexpectedToken(current_char)),
+        };
+        Some(tok)
+    }
+}
 
 #[cfg(test)]
 mod tests {
