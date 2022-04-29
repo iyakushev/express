@@ -39,3 +39,4 @@ macro_rules! fill_ts {
 }
 mod ema;
 mod ma;
+mod malin;
