@@ -37,6 +37,35 @@ pub fn ema(ts_buffer: &[TimeStep], lookback: f64) -> Option<f64> {
     Some(value / expsum)
 }
 
+/**
+Computes exponential moving average over arbitrary slice
+: price, time -- represent each corresponding axes of market data. They must have matching size.
+: lookback -- represents a window period over time. If the lookback is too large, ma returns None.
+
+
+# Formula
+[EMA Formula](https://wikimedia.org/api/rest_v1/media/math/render/svg/05d06bdbee2c14031fd91ead6f5f772aec1ec964)
+ */
+#[allow(dead_code)]
+#[inline]
+pub fn cooler_ema(ts_buffer: &[TimeStep], lookback: f64) -> Option<f64> {
+    let last_tick = ts_buffer.last()?;
+    if lookback > (last_tick.time - ts_buffer.first()?.time) {
+        return None;
+    }
+    let mut it_buffer = ts_buffer
+        .iter()
+        .skip_while(|t| last_tick.time - t.time > lookback);
+    let mut prev_tick = it_buffer.next()?;
+    let mut value = prev_tick.price;
+    for tick in it_buffer {
+        let exp = (tick.time - prev_tick.time) / (lookback * 2.0f64.ln());
+        value = exp * tick.price + (1.0 - exp) * value;
+        prev_tick = tick;
+    }
+    Some(value)
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
@@ -55,6 +84,14 @@ mod test {
         let stack: TimeSeries = fill_ts![2.0, 0.0; 5.0, 1.0; 1.0, 3.0; 2.0, 4.0];
         let window = 3.0;
         let result = ema(stack.deref(), window).unwrap();
+        assert_approx_eq!(f64, 2.3078, result, epsilon = 0.001);
+    }
+
+    #[test]
+    pub fn test_full_vec_pass_but_its_cool() {
+        let stack: TimeSeries = fill_ts![2.0, 0.0; 5.0, 1.0; 1.0, 3.0; 2.0, 4.0];
+        let window = 3.0;
+        let result = cooler_ema(stack.deref(), window).unwrap();
         assert_approx_eq!(f64, 2.3078, result, epsilon = 0.001);
     }
 

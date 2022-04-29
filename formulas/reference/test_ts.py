@@ -1,4 +1,5 @@
 from timeseries.utils_window_functions import ema_calc
+from timeseries.omen import emaf2, ema2
 import numpy as np
 
 
@@ -71,3 +72,14 @@ def test_ema_longer():
     ]
     for pos, res in enumerate(result):
         assert res - expected[pos] < 1e-4
+
+
+def test_omen_ema():
+    value = np.array([2.0, 5.0, 1.0, 2.0], dtype=np.float64)
+    time = np.array([0.0, 1.0, 3.0, 4.0], dtype=np.float64)
+    window = 3
+    result = ema2(value, time, window)
+    resultf = emaf2(value, time, window)
+    breakpoint()
+    print(result)
+    print(resultf)
