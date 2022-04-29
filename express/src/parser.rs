@@ -1,9 +1,4 @@
-use nom::{
-    bytes::complete::{tag, take_while_m_n},
-    character::complete::one_of,
-    sequence::tuple,
-    IResult,
-};
+use nom::{bytes::complete::tag, character::complete::one_of, combinator::opt, IResult};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
@@ -31,6 +26,9 @@ pub enum Expression {
 
 /// Parses operation token: `+, -, *, /, **, !`
 fn parse_op(input: &str) -> IResult<&str, Operation> {
+    if let (inp, Some(_)) = opt(tag("**"))(input)? {
+        return Ok((inp, Operation::Power));
+    }
     let (inp, tok) = one_of("+-*/!")(input)?;
     let tok = match tok {
         '+' => Operation::Plus,
@@ -41,4 +39,27 @@ fn parse_op(input: &str) -> IResult<&str, Operation> {
         _ => unreachable!(),
     };
     Ok((inp, tok))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_op {
+        ($str:expr, $tok:expr) => {
+            let (_, t) = parse_op($str).unwrap();
+            assert_eq!(t, $tok);
+        };
+    }
+
+    #[test]
+    fn test_op() {
+        test_op!("+", Operation::Plus);
+        test_op!("-", Operation::Minus);
+        test_op!("*", Operation::Times);
+        test_op!("/", Operation::Divide);
+        test_op!("!", Operation::Factorial);
+        test_op!("**", Operation::Power);
+        test_op!("**garbage", Operation::Power);
+    }
 }
