@@ -30,6 +30,24 @@ bijection!(Type::String => String);
 bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
 
+impl From<Type> for (f64, f64) {
+    fn from(val: Type) -> Self {
+        match val {
+            Type::TimeStep(t) => (t.price, t.time),
+            _ => panic!("Recieved unrecognized type"),
+        }
+    }
+}
+
+impl From<(f64, f64)> for Type {
+    fn from(val: (f64, f64)) -> Self {
+        Type::TimeStep(TimeStep {
+            price: val.0,
+            time: val.1,
+        })
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub struct TimeStep {
     price: f64,
