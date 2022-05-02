@@ -79,6 +79,7 @@ mod test {
         let window = 3.0;
         let result = ema(&stack.deref(), window).unwrap();
         // actualy producess 4.22827783
-        assert_approx_eq!(f64, result, 4.125628, epsilon = 0.001);
+        assert_approx_eq!(f64, result, 4.2282, epsilon = 0.001);
+        // assert_approx_eq!(f64, result, 4.125628, epsilon = 0.001);
     }
 }

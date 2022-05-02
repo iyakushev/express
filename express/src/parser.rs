@@ -1,4 +1,9 @@
-use nom::{bytes::complete::tag, character::complete::one_of, combinator::opt, IResult};
+use nom::{
+    bytes::complete::tag,
+    character::{complete::one_of, is_alphanumeric},
+    combinator::opt,
+    IResult,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
@@ -39,6 +44,24 @@ fn parse_op(input: &str) -> IResult<&str, Operation> {
         _ => unreachable!(),
     };
     Ok((inp, tok))
+}
+
+fn parse_literal(input: &str) -> IResult<&str, Literal> {
+    unimplemented!()
+}
+
+fn parse_unary(input: &str) -> IResult<&str, Expression> {
+    let (input, op) = parse_op(input)?;
+    unimplemented!()
+}
+
+fn parse_binary(input: &str) -> IResult<&str, Expression> {
+    unimplemented!()
+}
+
+/// Parses function expressions like `foo(<Expression, *>).*`
+fn parse_function(input: &str) -> IResult<&str, Expression> {
+    unimplemented!()
 }
 
 #[cfg(test)]
