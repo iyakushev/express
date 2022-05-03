@@ -73,3 +73,43 @@ impl Callable for Function {
 pub trait Callable {
     fn call(&self, args: &[Type]) -> Type;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_bijection {
+        ($val:expr, $src_t:ty) => {
+            let v = $val;
+            let t = Type::from(v);
+            let v = <$src_t>::from(t);
+            let _: Type = v.into();
+        };
+    }
+
+    #[test]
+    fn test_f64() {
+        test_bijection!(0.12f64, f64);
+    }
+
+    #[test]
+    fn test_string() {
+        test_bijection!("abcd".to_string(), String);
+    }
+
+    #[test]
+    fn test_tuple() {
+        test_bijection!((0.1, 2.2), (f64, f64));
+    }
+
+    #[test]
+    fn test_timestep() {
+        test_bijection!(
+            TimeStep {
+                price: 22.0,
+                time: 11.0
+            },
+            TimeStep
+        );
+    }
+}

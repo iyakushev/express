@@ -1,16 +1,19 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
-use types::{Callable, Type};
 
 /// This is a special macro that qualifies given function
 /// as a runtime acceptable. Note that the function can't
 /// have any internal mutable state.
 /// # Example
 /// ```rust
-/// use express::runtime_callable;
+/// # #[macro_use] extern crate exmac;
+/// # use exmac::runtime_callable;
+///
 /// #[runtime_callable]
-/// fn foo(input: String) -> f64 { ... }
+/// fn foo(input: String) -> f64 {
+///     3.14f64
+/// }
 /// ```
 #[proc_macro_attribute]
 pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -21,16 +24,13 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             if let Pat::Ident(id) = *t.pat.clone() {
                 let tp = t.ty;
                 let q = quote! {
-                    let #id : #tp = unsafe { args.get_unchecked(#idx).into(); };
+                    let #id : #tp = unsafe { args.get_unchecked(#idx).into() };
                 };
                 arguments.push(q);
             } else {
                 return syn::Error::new(
                     t.span(),
-                    format!(
-                        "This macro expects identifier as an argument name. Got: {:?}",
-                        arg
-                    ),
+                    "This macro expects identifier as an argument name.",
                 )
                 .to_compile_error()
                 .into();
@@ -56,15 +56,15 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let stmts = function.block.stmts;
     quote! {
+        use types::{Callable, Type};
+
         #[allow(non_camel_case_types)]
         struct #fn_name;
 
         impl Callable for #fn_name {
             fn call(&self, args: &[Type]) -> Type {
                 #( #arguments )*
-                return {
-                    #( #stmts )*
-                }.into();
+                { #( #stmts )* }.into()
             }
         }
     }

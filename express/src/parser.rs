@@ -1,3 +1,4 @@
+#[allow(dead_code)]
 use nom::{
     bytes::complete::tag,
     character::{complete::one_of, is_alphanumeric},
