@@ -62,7 +62,7 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         struct #fn_name;
 
         impl Callable for #fn_name {
-            fn call(&self, args: &[Type]) -> Type {
+            fn call(&self, args: Box<[Type]>) -> Type {
                 #( #arguments )*
                 { #( #stmts )* }.into()
             }
