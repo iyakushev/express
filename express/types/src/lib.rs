@@ -1,3 +1,5 @@
+use std::{collections::BTreeMap, lazy::OnceCell};
+
 pub enum Type {
     Number(f64),
     String(String),
@@ -5,6 +7,8 @@ pub enum Type {
     Collection(Box<[Type]>),
     TimeStep(TimeStep),
 }
+
+pub static FN_REGISTRY: OnceCell<BTreeMap<&str, Function>> = OnceCell::new();
 
 macro_rules! bijection {
     ($expr_t:path => $type:ty) => {
@@ -29,6 +33,7 @@ bijection!(Type::Number => f64);
 bijection!(Type::String => String);
 bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
+bijection!(Type::Collection => Box<[Type]>);
 
 impl From<&Type> for f64 {
     fn from(val: &Type) -> Self {
