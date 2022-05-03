@@ -1,7 +1,19 @@
+extern crate exmac;
 use exmac::runtime_callable;
-use types::{Callable, Type};
 
-// #[runtime_callable]
-// fn foo(input: f64) -> f64 {
-//     input * 2.0 + 2.0
-// }
+#[runtime_callable]
+fn foo(input: f64) -> f64 {
+    input * 2.0 + 2.0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_expansion() {
+        #[runtime_callable]
+        fn upper(input: String) -> String {
+            input.to_uppercase()
+        }
+    }
+}

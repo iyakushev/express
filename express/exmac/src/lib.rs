@@ -6,13 +6,13 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 /// as a runtime acceptable. Note that the function can't
 /// have any internal mutable state.
 /// # Example
-/// ```rust
+/// ```no_run
 /// # #[macro_use] extern crate exmac;
 /// # use exmac::runtime_callable;
 ///
 /// #[runtime_callable]
-/// fn foo(input: String) -> f64 {
-///     3.14f64
+/// fn foo(input: f64) -> f64 {
+///     input + 3.14f64
 /// }
 /// ```
 #[proc_macro_attribute]
