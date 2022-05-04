@@ -9,12 +9,25 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 /// ```rust
 /// # #[macro_use] extern crate exmac;
 /// # use exmac::runtime_callable;
-///
 /// #[runtime_callable]
 /// fn foo(input: f64) -> f64 {
 ///     input + 3.14f64
 /// }
 /// ```
+/// This expands given function into runtime callable object:
+/// ```
+/// use types::{Callable, Type, FN_REGISTRY};
+/// #[allow(non_camel_case_types)]
+/// struct _foo;
+/// impl Callable for _foo{
+///     fn call(&self, args: Box<[Type]>) -> Type {
+///         let input: f64 = unsafe { args.get_unchecked(0usize).into() };
+///         { input + 3.14f64 }.into()
+///     }
+/// }
+/// ```
+/// `unsafe` block helps to remove unnecessary bounds checks which are preformed
+/// at runtime before that.
 #[proc_macro_attribute]
 pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let function: syn::ItemFn = syn::parse_macro_input!(item);
@@ -56,7 +69,7 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let stmts = function.block.stmts;
     quote! {
-        use types::{Callable, Type};
+        use types::{Callable, Type, FN_REGISTRY};
 
         #[allow(non_camel_case_types)]
         struct #fn_name;

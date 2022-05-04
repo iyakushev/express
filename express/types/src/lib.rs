@@ -1,6 +1,12 @@
 use once_cell::sync::OnceCell;
 use std::collections::BTreeMap;
 
+/// Representation of valid runtime types.
+/// Every function that implements [Callable] trait must
+/// accept and return on of the following types. End user
+/// doesn't need to care about them thanks to the `#[runtime_callable]`
+/// macro which expands function declaration into a callable ZST structure
+/// with its arguments and return type being automatically converted via `From` trait implementations.
 pub enum Type {
     Number(f64),
     String(String),
@@ -9,11 +15,16 @@ pub enum Type {
     TimeStep(TimeStep),
 }
 
+/// A registry that holds function types ready to be dispatched at runtime.
+/// Each `fn` annotated with proc-macro `#[runtime_callable]` adds itself
+/// to this registry which allows runtime to quickly lookup callable struct
+/// by its value.
 pub static FN_REGISTRY: OnceCell<BTreeMap<&str, Function>> = OnceCell::new();
 
 /// Automatically implements bijection conversion traits
 /// for types __Type(T) <-> T__.
 /// Note that `T` and `Type` are owned values.
+#[macro_export]
 macro_rules! bijection {
     ($expr_t:path => $type:ty) => {
         impl From<Type> for $type {
@@ -77,6 +88,8 @@ impl From<(f64, f64)> for Type {
     }
 }
 
+/// A wrapping structure around `(f64, f64)` that represents
+/// a single tick of data with fields.
 #[derive(Debug, PartialEq)]
 pub struct TimeStep {
     price: f64,
