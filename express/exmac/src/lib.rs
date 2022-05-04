@@ -6,7 +6,7 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 /// as a runtime acceptable. Note that the function can't
 /// have any internal mutable state.
 /// # Example
-/// ```no_run
+/// ```rust
 /// # #[macro_use] extern crate exmac;
 /// # use exmac::runtime_callable;
 ///

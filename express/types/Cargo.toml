@@ -9,4 +9,4 @@ edition = "2021"
 crate-type = ["lib"]
 
 [dependencies]
-lazyonce_cell = "1.10.0"
+once_cell = "1.10.0"

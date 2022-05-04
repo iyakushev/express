@@ -1,4 +1,5 @@
-use std::{collections::BTreeMap, lazy::OnceCell};
+use once_cell::sync::OnceCell;
+use std::collections::BTreeMap;
 
 pub enum Type {
     Number(f64),
@@ -10,6 +11,9 @@ pub enum Type {
 
 pub static FN_REGISTRY: OnceCell<BTreeMap<&str, Function>> = OnceCell::new();
 
+/// Automatically implements bijection conversion traits
+/// for types __Type(T) <-> T__.
+/// Note that `T` and `Type` are owned values.
 macro_rules! bijection {
     ($expr_t:path => $type:ty) => {
         impl From<Type> for $type {
@@ -53,6 +57,8 @@ impl From<&Type> for String {
     }
 }
 
+// NOTE(iy): Additional conversion for tuple f64 into TimeStep
+// might be useful.
 impl From<Type> for (f64, f64) {
     fn from(val: Type) -> Self {
         match val {
@@ -83,7 +89,7 @@ pub struct TimeStep {
 /// not contain any side effects. This is guranteed by the
 /// `Callable` trait contract whitch takes only immutable
 /// reference to self.
-pub struct Function(Box<dyn Callable>);
+pub struct Function(Box<dyn Callable + Send + Sync>);
 
 impl Callable for Function {
     fn call(&self, args: Box<[Type]>) -> Type {
