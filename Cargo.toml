@@ -1,5 +1,5 @@
 [workspace]
 members = [
-    "formulas",
+    "express-ts",
     "express",
 ]

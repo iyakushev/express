@@ -1,10 +1,11 @@
-#[allow(dead_code)]
 use nom::{
-    bytes::complete::tag,
-    character::{complete::one_of, is_alphanumeric},
-    combinator::opt,
-    IResult,
+    branch::alt,
+    character::complete::{alpha0, alpha1, digit1},
+    combinator::{map, map_res},
+    sequence::{preceded, terminated},
 };
+#[allow(dead_code)]
+use nom::{bytes::complete::tag, character::complete::one_of, combinator::opt, IResult};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Literal {
@@ -25,9 +26,8 @@ pub enum Operation {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Const(Literal),
-    Function(Vec<Expression>),
+    Function { name: String, args: Vec<Expression> },
     BinOp(Box<Expression>, Box<Expression>, Operation),
-    UnOp(Box<Expression>, Operation),
 }
 
 /// Parses operation token: `+, -, *, /, **, !`
@@ -47,21 +47,66 @@ fn parse_op(input: &str) -> IResult<&str, Operation> {
     Ok((inp, tok))
 }
 
-fn parse_literal(input: &str) -> IResult<&str, Literal> {
-    unimplemented!()
+fn parse_number(input: &str) -> IResult<&str, Literal> {
+    alt((
+        map_res(digit1, |digit_str: &str| {
+            digit_str.parse::<f64>().map(Literal::Number)
+        }),
+        map(preceded(tag("-"), digit1), |digit_str: &str| {
+            Literal::Number(-1.0 * digit_str.parse::<f64>().unwrap())
+        }),
+    ))(input)
 }
 
-fn parse_unary(input: &str) -> IResult<&str, Expression> {
-    let (input, op) = parse_op(input)?;
-    unimplemented!()
+/// Parses any given identifier which is alphabetic
+/// ```no_run
+/// assert_eq!(parse_ident("abc"), Ok(("", Literal::Ident(String("abc")))))
+/// assert_eq!(parse_ident("1abc"), Err(...))
+/// ```
+fn parse_ident(input: &str) -> IResult<&str, Literal> {
+    map(terminated(tag("("), alpha1), |ident: &str| {
+        Literal::Ident(ident.to_string())
+    })(input)
+}
+
+fn parse_literal(input: &str) -> IResult<&str, Literal> {
+    alt((parse_number, parse_ident))(input)
 }
 
 fn parse_binary(input: &str) -> IResult<&str, Expression> {
     unimplemented!()
 }
 
+fn parse_iterable<'i>(
+    input: &'i str,
+    start_encl: &str,
+    end_encl: &str,
+) -> IResult<&'i str, Vec<Expression>> {
+    unimplemented!()
+}
+
 /// Parses function expressions like `foo(<Expression, *>).*`
 fn parse_function(input: &str) -> IResult<&str, Expression> {
+    let (input, id) = parse_literal(input)?;
+    match id {
+        Literal::Number(d) => Err(nom::Err::Error(nom::error::Error::new(
+            &format!(
+                "Function names can not start with a digit: {}",
+                d.to_string()
+            ),
+            nom::error::ErrorKind::AlphaNumeric,
+        ))),
+        Literal::Ident(name) => {
+            let (input, _) = tag("(")(input)?;
+            let (input, args) = parse_iterable(input, "(", ")")?;
+            let (input, _) = tag(")")(input)?;
+            Ok((input, Expression::Function { name, args }))
+        }
+    }
+}
+
+/// Parses function expressions like `foo(<Expression, *>).*`
+fn parse_expression(input: &str) -> IResult<&str, Expression> {
     unimplemented!()
 }
 

@@ -1,5 +1,5 @@
 [package]
-name = "formula"
+name = "express-ts"
 version = "0.1.0"
 edition = "2021"
 description = "A collection of usefull execution related functions"
