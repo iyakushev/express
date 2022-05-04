@@ -73,6 +73,10 @@ fn parse_literal(input: &str) -> IResult<&str, Literal> {
     alt((parse_number, parse_ident))(input)
 }
 
+fn parse_cost(input: &str) -> IResult<&str, Expression> {
+    map(parse_literal, |lit| Expression::Const(lit))(input)
+}
+
 fn parse_binary(input: &str) -> IResult<&str, Expression> {
     unimplemented!()
 }
