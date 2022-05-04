@@ -93,11 +93,8 @@ fn parse_iterable<'i>(
 fn parse_function(input: &str) -> IResult<&str, Expression> {
     let (input, id) = parse_literal(input)?;
     match id {
-        Literal::Number(d) => Err(nom::Err::Error(nom::error::Error::new(
-            &format!(
-                "Function names can not start with a digit: {}",
-                d.to_string()
-            ),
+        Literal::Number(_) => Err(nom::Err::Error(nom::error::Error::new(
+            "Function names can not start with a digit.",
             nom::error::ErrorKind::AlphaNumeric,
         ))),
         Literal::Ident(name) => {
@@ -119,20 +116,38 @@ mod tests {
     use super::*;
 
     macro_rules! test_op {
-        ($str:expr, $tok:expr) => {
-            let (_, t) = parse_op($str).unwrap();
+        ($parser:expr, $str:expr => $tok:expr) => {
+            let (_, t) = $parser($str).unwrap();
             assert_eq!(t, $tok);
+        };
+        ($parser:expr, $str:expr => $tok:expr, $err:expr) => {
+            match $parser($str) {
+                Ok((_, t)) => assert_eq!(t, $tok),
+                Err(e) => assert_eq!(e, $err),
+            }
         };
     }
 
     #[test]
     fn test_op() {
-        test_op!("+", Operation::Plus);
-        test_op!("-", Operation::Minus);
-        test_op!("*", Operation::Times);
-        test_op!("/", Operation::Divide);
-        test_op!("!", Operation::Factorial);
-        test_op!("**", Operation::Power);
-        test_op!("**garbage", Operation::Power);
+        test_op!(parse_op, "+" => Operation::Plus);
+        test_op!(parse_op, "-" => Operation::Minus);
+        test_op!(parse_op, "*" => Operation::Times);
+        test_op!(parse_op, "/" => Operation::Divide);
+        test_op!(parse_op, "!" => Operation::Factorial);
+        test_op!(parse_op, "**" => Operation::Power);
+        test_op!(parse_op, "**garbage" => Operation::Power);
+    }
+
+    #[test]
+    fn test_id() {
+        test_op!(parse_ident, "hello" => Literal::Ident("hello".to_string()));
+        test_op!(parse_ident, "hello world" => Literal::Ident("hello".to_string()));
+    }
+
+    #[test]
+    fn test_num() {
+        test_op!(parse_number, "12" => Literal::Number(12.0f64));
+        test_op!(parse_number, "22.22" => Literal::Number(22.22f64));
     }
 }
