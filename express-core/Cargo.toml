@@ -16,3 +16,4 @@ crate-type = ["lib"]
 nom = "7.1.1"
 xmacro = { path="./xmacro" }
 types = { path="./types" }
+lang = { path="./lang" }

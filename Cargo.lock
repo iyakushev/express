@@ -12,6 +12,7 @@ checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 name = "express"
 version = "0.1.0"
 dependencies = [
+ "lang",
  "nom",
  "types",
  "xmacro",
@@ -24,6 +25,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "98de4bbd547a563b716d8dfa9aad1cb19bfab00f4fa09a6a4ed21dbcf44ce9c4"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "lang"
+version = "0.1.0"
+dependencies = [
+ "nom",
 ]
 
 [[package]]
