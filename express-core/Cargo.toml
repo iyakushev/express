@@ -14,5 +14,5 @@ crate-type = ["lib"]
 
 [dependencies]
 nom = "7.1.1"
-exmac = { path="exmac" }
-types = { path="types" }
+xmacro = { path="./xmacro" }
+types = { path="./types" }

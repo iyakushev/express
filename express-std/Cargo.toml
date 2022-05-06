@@ -1,5 +1,5 @@
 [package]
-name = "express-ts"
+name = "std-expr"
 version = "0.1.0"
 edition = "2021"
 description = "A collection of usefull execution related functions"
@@ -11,6 +11,7 @@ crate-type = ["lib"]
 
 [dependencies]
 slice-deque = "0.3.0"
+express = {path="../express-core"}
 
 [dev-dependencies]
 float-cmp = "0.9.0"

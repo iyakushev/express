@@ -1,5 +1,5 @@
-extern crate exmac;
-use exmac::runtime_callable;
+extern crate xmacro;
+use xmacro::runtime_callable;
 
 #[runtime_callable]
 fn foo(input: f64) -> f64 {

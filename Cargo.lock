@@ -9,30 +9,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
-name = "exmac"
-version = "0.0.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
- "types",
-]
-
-[[package]]
 name = "express"
 version = "0.1.0"
 dependencies = [
- "exmac",
  "nom",
  "types",
-]
-
-[[package]]
-name = "express-ts"
-version = "0.1.0"
-dependencies = [
- "float-cmp",
- "slice-deque",
+ "xmacro",
 ]
 
 [[package]]
@@ -126,6 +108,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "std-expr"
+version = "0.1.0"
+dependencies = [
+ "express",
+ "float-cmp",
+ "slice-deque",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.92"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -170,3 +161,13 @@ name = "winapi-x86_64-pc-windows-gnu"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
+
+[[package]]
+name = "xmacro"
+version = "0.0.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+ "types",
+]
