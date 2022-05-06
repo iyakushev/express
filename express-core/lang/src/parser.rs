@@ -2,7 +2,7 @@
 use nom::{
     branch::alt,
     character::complete::{alpha1, char, multispace0},
-    combinator::{cut, map},
+    combinator::{cut, map, peek},
     error::context,
     multi::separated_list0,
     number::complete::double,
@@ -100,6 +100,17 @@ fn parse_binary(input: &str) -> IResult<&str, Expression> {
     ))
 }
 
+fn parse_arithmetic(input: &str) -> IResult<&str, Expression> {
+    alt((
+        delimited(
+            char('('),
+            preceded(multispace0, alt((parse_const, parse_binary))),
+            char(')'),
+        ),
+        alt((parse_const, parse_binary)),
+    ))(input)
+}
+
 /// Parses function expressions like `foo(<Expression, *>).*`
 fn parse_function<'a>(input: &str) -> IResult<&str, Expression> {
     let (input, fn_name) = parse_ident(input)?;
@@ -117,12 +128,9 @@ fn parse_function<'a>(input: &str) -> IResult<&str, Expression> {
 }
 
 /// Parses function expressions like
-/// EXPRESSION := FUNCTION | CONST | BINARY | EXPRESSION
+/// EXPRESSION := FUNCTION | CONST | BINARY
 pub fn parse_expression(input: &str) -> IResult<&str, Expression> {
-    preceded(
-        multispace0,
-        alt((parse_function, parse_const, parse_binary)),
-    )(input)
+    preceded(multispace0, alt((parse_function, parse_arithmetic)))(input)
 }
 
 #[cfg(test)]
@@ -181,6 +189,15 @@ mod tests {
                                                        args: vec![] }),
                                               Box::new(Expression::Const(
                                                   Literal::Number(12.0))),
+                                              Operation::Plus)
+        );
+
+        test_op!(parse_binary, "12 + foo" =>  Expression::BinOp(
+                                            Box::new(Expression::Const(
+                                                  Literal::Number(12.0))),
+                                            Box::new(Expression::Function
+                                                     { name: Literal::Ident("foo".to_string()),
+                                                       args: vec![] }),
                                               Operation::Plus)
         );
     }
