@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+use crate::ast::*;
+use nom::bytes::complete::tag;
 use nom::{
     branch::alt,
     character::complete::{alpha1, char, multispace0},
@@ -7,52 +9,8 @@ use nom::{
     multi::{fold_many0, separated_list0},
     number::complete::double,
     sequence::{delimited, pair, preceded},
+    IResult,
 };
-use nom::{bytes::complete::tag, character::complete::one_of, combinator::opt, IResult};
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Literal {
-    Ident(String),
-    Number(f64),
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum Operation {
-    Plus,
-    Minus,
-    Times,
-    Divide,
-    Power,
-    Factorial,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
-    Const(Literal),
-    Function {
-        name: Literal,
-        args: Vec<Expression>,
-    },
-    BinOp(Box<Expression>, Box<Expression>, Operation),
-    UnOp(Operation, Box<Expression>),
-}
-
-/// Parses operation token: `+, -, *, /, **, !`
-fn parse_op(input: &str) -> IResult<&str, Operation> {
-    if let (inp, Some(_)) = opt(tag("**"))(input)? {
-        return Ok((inp, Operation::Power));
-    }
-    let (inp, tok) = one_of("+-*/!")(input)?;
-    let tok = match tok {
-        '+' => Operation::Plus,
-        '-' => Operation::Minus,
-        '/' => Operation::Divide,
-        '*' => Operation::Times,
-        '!' => Operation::Factorial,
-        _ => unreachable!(),
-    };
-    Ok((inp, tok))
-}
 
 /// Parses number as a floating point. Any fp notation is valid
 fn parse_number(input: &str) -> IResult<&str, Literal> {
@@ -95,6 +53,7 @@ fn parse_parens(input: &str) -> IResult<&str, Expression> {
     )(input)
 }
 
+/// Parses either a const/fn operand or expression inside parens
 fn parse_factor(input: &str) -> IResult<&str, Expression> {
     preceded(multispace0, alt((parse_operand, parse_parens)))(input)
 }
@@ -223,17 +182,6 @@ mod tests {
     }
 
     #[test]
-    fn test_op() {
-        test_op!(parse_op, "+" => Operation::Plus);
-        test_op!(parse_op, "-" => Operation::Minus);
-        test_op!(parse_op, "*" => Operation::Times);
-        test_op!(parse_op, "/" => Operation::Divide);
-        test_op!(parse_op, "!" => Operation::Factorial);
-        test_op!(parse_op, "**" => Operation::Power);
-        test_op!(parse_op, "**garbage" => Operation::Power);
-    }
-
-    #[test]
     fn test_id() {
         test_op!(parse_ident, "hello" => Literal::Ident("hello".to_string()));
         test_op!(parse_ident, "hello world" => Literal::Ident("hello".to_string()));
@@ -280,6 +228,13 @@ mod tests {
             Box::new(
                 Expression::Function { name: Literal::Ident("ema".to_string()), args: vec![] }))
         );
+        test_op!(parse_expression, "!12" =>
+                Expression::UnOp(
+                    Operation::Factorial,
+                    Box::new(
+                        Expression::Const(
+                            Literal::Number(12.0)))
+        ));
     }
 
     #[test]
@@ -336,6 +291,15 @@ mod tests {
                                                     Operation::Times)
                                                 ),
                                                 Operation::Plus)
+        );
+        test_op!(parse_expression, "(2 + 2) * 2" =>  Expression::BinOp(
+                                                Box::new(Expression::BinOp(
+                                                    Box::new(Expression::Const(Literal::Number(2.0))),
+                                                    Box::new(Expression::Const(Literal::Number(2.0))),
+                                                    Operation::Plus)
+                                                ),
+                                                Box::new(Expression::Const(Literal::Number(2.0))),
+                                                Operation::Times)
         );
     }
 }

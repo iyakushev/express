@@ -10,6 +10,7 @@ fn foo(input: f64) -> f64 {
 mod tests {
     use super::*;
 
+    #[test]
     fn test_expansion() {
         #[runtime_callable]
         fn upper(input: String) -> String {
