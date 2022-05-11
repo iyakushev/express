@@ -6,7 +6,7 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 /// as a runtime acceptable. Note that the function can't
 /// have any internal mutable state.
 /// # Example
-/// ```rust
+/// ```ignore
 /// # #[macro_use] extern crate exmac;
 /// # use exmac::runtime_callable;
 /// #[runtime_callable]
@@ -15,7 +15,7 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 /// }
 /// ```
 /// This expands given function into runtime callable object:
-/// ```
+/// ```ignore
 /// use types::{Callable, Type, FN_REGISTRY};
 /// #[allow(non_camel_case_types)]
 /// struct _foo;
