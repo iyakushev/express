@@ -2,7 +2,7 @@
 use nom::{
     branch::alt,
     character::complete::{alpha1, char, multispace0},
-    combinator::{cut, map, peek},
+    combinator::{cut, map},
     error::context,
     multi::{fold_many0, separated_list0},
     number::complete::double,
@@ -164,9 +164,19 @@ fn parse_binary(input: &str) -> IResult<&str, Expression> {
 
 /// Returns unary expression representation like: __-12__, __-ema(...)__
 fn parse_unary_neg(input: &str) -> IResult<&str, Expression> {
-    map(preceded(char('-'), parse_operand), |op| {
-        Expression::UnOp(Operation::Minus, Box::new(op))
-    })(input)
+    map(
+        pair(alt((char('-'), char('!'))), parse_operand),
+        |(op, rhs)| {
+            Expression::UnOp(
+                if op == '-' {
+                    Operation::Minus
+                } else {
+                    Operation::Factorial
+                },
+                Box::new(rhs),
+            )
+        },
+    )(input)
 }
 
 fn _parse(input: &str) -> IResult<&str, Expression> {
