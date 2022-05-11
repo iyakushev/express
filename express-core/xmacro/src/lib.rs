@@ -1,5 +1,5 @@
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::quote;
 use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 
 /// This is a special macro that qualifies given function
@@ -57,7 +57,8 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     }
-    let fn_name = format_ident!("_{}", function.sig.ident);
+    //let fn_name = format_ident!("_{}", function.sig.ident);
+    let fn_name = function.sig.ident;
     if let ReturnType::Default = function.sig.output {
         return syn::Error::new(
             function.sig.output.span(),
@@ -72,9 +73,10 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         use types::{Callable, Type, FN_REGISTRY};
 
         #[allow(non_camel_case_types)]
-        struct #fn_name;
+        pub struct #fn_name;
 
         impl Callable for #fn_name {
+            #[inline]
             fn call(&self, args: Box<[Type]>) -> Option<Type> {
                 #( #arguments )*
                 Some({ #( #stmts )* }?.into())

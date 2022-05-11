@@ -1,5 +1,5 @@
 use once_cell::sync::OnceCell;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Debug};
 
 /// Representation of valid runtime types.
 /// Every function that implements [Callable] trait must
@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 /// doesn't need to care about them thanks to the `#[runtime_callable]`
 /// macro which expands function declaration into a callable ZST structure
 /// with its arguments and return type being automatically converted via `From` trait implementations.
+#[derive(Debug)]
 pub enum Type {
     Number(f64),
     String(String),
@@ -59,6 +60,15 @@ impl From<&Type> for f64 {
     }
 }
 
+impl From<&Type> for TimeStep {
+    fn from(val: &Type) -> Self {
+        match val {
+            Type::TimeStep(ts) => *ts,
+            _ => panic!("Recieved unrecognized type"),
+        }
+    }
+}
+
 impl From<&Type> for String {
     fn from(val: &Type) -> Self {
         match val {
@@ -90,10 +100,10 @@ impl From<(f64, f64)> for Type {
 
 /// A wrapping structure around `(f64, f64)` that represents
 /// a single tick of data with fields.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TimeStep {
-    price: f64,
-    time: f64,
+    pub price: f64,
+    pub time: f64,
 }
 
 /// Represents a general runtime concept of a function.
@@ -103,6 +113,12 @@ pub struct TimeStep {
 /// `Callable` trait contract whitch takes only immutable
 /// reference to self.
 pub struct Function(Box<dyn Callable + Send + Sync>);
+
+impl Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Function")
+    }
+}
 
 impl Callable for Function {
     fn call(&self, args: Box<[Type]>) -> Option<Type> {

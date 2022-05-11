@@ -1,10 +1,5 @@
+pub use express::types::TimeStep;
 use slice_deque::SliceDeque;
-
-#[derive(Debug, Copy, Clone)]
-pub struct TimeStep {
-    pub price: f64,
-    pub time: f64,
-}
 
 /**
 It accumulates ticks over time into the inner ring buffer
