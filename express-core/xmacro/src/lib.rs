@@ -75,11 +75,16 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         struct #fn_name;
 
         impl Callable for #fn_name {
-            fn call(&self, args: Box<[Type]>) -> Type {
+            fn call(&self, args: Box<[Type]>) -> Option<Type> {
                 #( #arguments )*
-                { #( #stmts )* }.into()
+                Some({ #( #stmts )* }?.into())
             }
         }
     }
     .into()
+}
+
+#[proc_macro]
+pub fn register_constant(tt: TokenStream) -> TokenStream {
+    tt
 }

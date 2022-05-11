@@ -105,7 +105,7 @@ pub struct TimeStep {
 pub struct Function(Box<dyn Callable + Send + Sync>);
 
 impl Callable for Function {
-    fn call(&self, args: Box<[Type]>) -> Type {
+    fn call(&self, args: Box<[Type]>) -> Option<Type> {
         self.0.call(args)
     }
 }
@@ -113,7 +113,7 @@ impl Callable for Function {
 /// This is a public Callable trait which lets
 /// any function be runable inside.
 pub trait Callable {
-    fn call(&self, args: Box<[Type]>) -> Type;
+    fn call(&self, args: Box<[Type]>) -> Option<Type>;
 }
 
 #[cfg(test)]

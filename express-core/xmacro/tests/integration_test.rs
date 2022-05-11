@@ -2,8 +2,8 @@ extern crate xmacro;
 use xmacro::runtime_callable;
 
 #[runtime_callable]
-fn foo(input: f64) -> f64 {
-    input * 2.0 + 2.0
+fn foo(input: f64) -> Option<f64> {
+    Some(input * 2.0 + 2.0)
 }
 
 #[cfg(test)]
@@ -13,8 +13,8 @@ mod tests {
     #[test]
     fn test_expansion() {
         #[runtime_callable]
-        fn upper(input: String) -> String {
-            input.to_uppercase()
+        fn upper(input: String) -> Option<String> {
+            Some(input.to_uppercase())
         }
     }
 }
