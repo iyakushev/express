@@ -1,4 +1,4 @@
-use once_cell::sync::OnceCell;
+use once_cell::sync::Lazy;
 use std::{collections::BTreeMap, fmt::Debug};
 
 /// Representation of valid runtime types.
@@ -16,11 +16,18 @@ pub enum Type {
     TimeStep(TimeStep),
 }
 
+pub type FnReg<'n, Val> = Lazy<BTreeMap<&'n str, Val>>;
+
 /// A registry that holds function types ready to be dispatched at runtime.
 /// Each `fn` annotated with proc-macro `#[runtime_callable]` adds itself
 /// to this registry which allows runtime to quickly lookup callable struct
 /// by its value.
-pub static FN_REGISTRY: OnceCell<BTreeMap<&str, Function>> = OnceCell::new();
+pub static FN_REGISTRY: FnReg<Function> = Lazy::new(|| BTreeMap::new());
+
+//pub static KW: phf::Map<&'static str, Function> = ;
+
+/// A registry that holds named constants and named results of const expressions.
+pub static CONST_REGISTRY: FnReg<f64> = Lazy::new(|| BTreeMap::new());
 
 /// Automatically implements bijection conversion traits
 /// for types __Type(T) <-> T__.

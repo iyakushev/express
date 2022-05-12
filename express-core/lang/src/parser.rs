@@ -122,7 +122,7 @@ fn parse_binary(input: &str) -> IResult<&str, Expression> {
 }
 
 /// Returns unary expression representation like: __-12__, __-ema(...)__
-fn parse_unary_neg(input: &str) -> IResult<&str, Expression> {
+fn parse_unary(input: &str) -> IResult<&str, Expression> {
     map(
         pair(alt((char('-'), char('!'))), parse_operand),
         |(op, rhs)| {
@@ -139,7 +139,7 @@ fn parse_unary_neg(input: &str) -> IResult<&str, Expression> {
 }
 
 fn _parse(input: &str) -> IResult<&str, Expression> {
-    alt((parse_unary_neg, parse_binary))(input)
+    alt((parse_unary, parse_binary))(input)
 }
 
 /// Parses function expressions like `foo(<Expression, *>).*`
@@ -301,5 +301,10 @@ mod tests {
                                                 Box::new(Expression::Const(Literal::Number(2.0))),
                                                 Operation::Times)
         );
+    }
+
+    #[test]
+    fn test_const() {
+        test_op!(parse_expression, "12" => Expression::Const(Literal::Number(12.0)));
     }
 }

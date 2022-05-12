@@ -1,4 +1,4 @@
-use super::TimeStep;
+use express::types::TimeStep;
 
 /**
 Computes exponential moving average over arbitrary slice
