@@ -34,7 +34,7 @@ impl Interpreter {
     }
 
     fn populate_prelude(&mut self) {
-        include_std!(self, std_expr::timeseries, ma);
+        // include_std!(self, std_expr::timeseries, ma);
         todo!()
     }
 

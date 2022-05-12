@@ -12,8 +12,42 @@ pub enum Type {
     Number(f64),
     String(String),
     Function(Function),
-    Collection(Arc<[Type]>),
+    Collection(Arc<[TimeStep]>),
     TimeStep(TimeStep),
+}
+
+/// A wrapping structure around `(f64, f64)` that represents
+/// a single tick of data with fields.
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub struct TimeStep {
+    pub price: f64,
+    pub time: f64,
+}
+
+/// Represents a general runtime concept of a function.
+/// It is generic over possible types `Type`.
+/// Note that each function must be pure. Meaning it could
+/// not contain any side effects. This is guranteed by the
+/// `Callable` trait contract whitch takes only immutable
+/// reference to self.
+pub struct Function(pub Box<dyn Callable + Send + Sync>);
+
+impl Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Function")
+    }
+}
+
+impl Callable for Function {
+    fn call(&self, args: Box<[Type]>) -> Option<Type> {
+        self.0.call(args)
+    }
+}
+
+/// This is a public Callable trait which lets
+/// any function be runable inside.
+pub trait Callable {
+    fn call(&self, args: Box<[Type]>) -> Option<Type>;
 }
 
 pub type FnReg<'n, Val> = Lazy<BTreeMap<&'n str, Val>>;
@@ -56,7 +90,7 @@ bijection!(Type::Number => f64);
 bijection!(Type::String => String);
 bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
-bijection!(Type::Collection => Arc<[Type]>);
+bijection!(Type::Collection => Arc<[TimeStep]>);
 
 impl From<&Type> for f64 {
     fn from(val: &Type) -> Self {
@@ -85,7 +119,7 @@ impl From<&Type> for String {
     }
 }
 
-impl From<&Type> for Arc<[Type]> {
+impl From<&Type> for Arc<[TimeStep]> {
     fn from(val: &Type) -> Self {
         match val {
             Type::Collection(c) => c.clone(),
@@ -112,40 +146,6 @@ impl From<(f64, f64)> for Type {
             time: val.1,
         })
     }
-}
-
-/// A wrapping structure around `(f64, f64)` that represents
-/// a single tick of data with fields.
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub struct TimeStep {
-    pub price: f64,
-    pub time: f64,
-}
-
-/// Represents a general runtime concept of a function.
-/// It is generic over possible types `Type`.
-/// Note that each function must be pure. Meaning it could
-/// not contain any side effects. This is guranteed by the
-/// `Callable` trait contract whitch takes only immutable
-/// reference to self.
-pub struct Function(pub Box<dyn Callable + Send + Sync>);
-
-impl Debug for Function {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Function")
-    }
-}
-
-impl Callable for Function {
-    fn call(&self, args: Box<[Type]>) -> Option<Type> {
-        self.0.call(args)
-    }
-}
-
-/// This is a public Callable trait which lets
-/// any function be runable inside.
-pub trait Callable {
-    fn call(&self, args: Box<[Type]>) -> Option<Type>;
 }
 
 #[cfg(test)]

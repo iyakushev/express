@@ -35,26 +35,4 @@ impl Formula {
             result: None,
         })
     }
-
-    fn lookup_fn<'a>(&self, e_fn: &'a Expression) -> Result<&'a Function, String> {
-        if let Expression::Function { name, args } = e_fn {
-            match name {
-                Literal::Ident(id) => {
-                    if let Some(f) = FN_REGISTRY.get(id.as_str()) {
-                        Ok(f)
-                    } else {
-                        Err(format!(
-                            "Failed to find function with a matching name: {}",
-                            id
-                        ))
-                    }
-                }
-                _ => unreachable!(),
-            }
-        } else {
-            Err("Given expression is not a function".to_string())
-        }
-    }
-
-    fn optimize(&mut self) {}
 }
