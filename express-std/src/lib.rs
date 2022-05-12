@@ -1,2 +1,2 @@
-mod math;
-mod timeseries;
+pub mod math;
+pub mod timeseries;

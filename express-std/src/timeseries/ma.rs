@@ -1,6 +1,7 @@
 use super::TimeStep;
 use express::types;
 use express::xmacro::runtime_callable;
+use std::sync::Arc;
 
 /**
 # Simple Moving Average (SMA/MA) trait
@@ -12,15 +13,15 @@ Computes simple moving average over arbitrary slice of md
 ![MA formula](https://wikimedia.org/api/rest_v1/media/math/render/svg/a608544726b8de1c3de562245ff0d1cd3d0efad6)
  */
 #[allow(dead_code)]
-//#[runtime_callable]
-pub fn ma(ts_buffer: Box<[TimeStep]>, lookback: f64) -> Option<f64> {
+#[runtime_callable]
+pub fn ma(ts_buffer: Arc<[TimeStep]>, lookback: f64) -> Option<f64> {
     let last_tick = ts_buffer.last()?.time;
     // NOTE(iy): Should this case be cumultive in behavor? E.g. CMA
     if lookback > (last_tick - ts_buffer.first()?.time) {
         return None;
     }
     let mut sum = 0.0;
-
+    let mut total_len = ts_buffer.len();
     for (pos, tick) in ts_buffer.iter().enumerate().rev() {
         // NOTE(iy): this makes ma range inclusive on the left
         // meaning that given time = [0, 1, 2, 3, 4] and lookback = 3
@@ -28,11 +29,11 @@ pub fn ma(ts_buffer: Box<[TimeStep]>, lookback: f64) -> Option<f64> {
         // since 4 - 1 = 3 exactly we need 1 extra step to satisfy condition
         sum += tick.price;
         if last_tick - tick.time > lookback {
+            total_len -= pos;
             break;
-            //return Some(sum / (ts_buffer.len() - pos) as f64);
         }
     }
-    Some(sum / ts_buffer.len() as f64)
+    Some(sum / total_len as f64)
 }
 
 #[cfg(test)]

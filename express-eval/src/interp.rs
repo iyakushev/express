@@ -1,9 +1,17 @@
 use crate::formula::Formula;
+use express::types::{Callable, Function};
 use std::collections::BTreeMap;
-use types::{Callable, Function};
+use std_expr;
 
 type Namespace<T> = BTreeMap<String, T>;
 type NamedExpression<'e> = (&'e str, &'e str);
+
+macro_rules! include_std {
+    ($obj: expr, $m: path , $name: ident) => {
+        let strct = $m::$name::$name;
+        $obj.ctx_fn.insert($name, strct);
+    };
+}
 
 struct Interpreter {
     ctx_fn: Namespace<Function>,
@@ -23,6 +31,11 @@ impl Interpreter {
             ctx_const: BTreeMap::new(),
             formulas: fs,
         })
+    }
+
+    fn populate_prelude(&mut self) {
+        include_std!(self, std_expr::timeseries, ma);
+        todo!()
     }
 
     /// Registers given function in the interpreter context

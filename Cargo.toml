@@ -2,4 +2,5 @@
 members = [
     "express-std",
     "express-core",
+    "express-eval",
 ]

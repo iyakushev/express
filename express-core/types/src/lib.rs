@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{collections::BTreeMap, fmt::Debug, rc::Rc, sync::Arc};
 
 /// Representation of valid runtime types.
 /// Every function that implements [Callable] trait must
@@ -12,7 +12,7 @@ pub enum Type {
     Number(f64),
     String(String),
     Function(Function),
-    Collection(Box<[Type]>),
+    Collection(Arc<[Type]>),
     TimeStep(TimeStep),
 }
 
@@ -56,7 +56,7 @@ bijection!(Type::Number => f64);
 bijection!(Type::String => String);
 bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
-bijection!(Type::Collection => Box<[Type]>);
+bijection!(Type::Collection => Arc<[Type]>);
 
 impl From<&Type> for f64 {
     fn from(val: &Type) -> Self {
@@ -80,6 +80,15 @@ impl From<&Type> for String {
     fn from(val: &Type) -> Self {
         match val {
             Type::String(n) => n.clone(),
+            _ => panic!("Recieved unrecognized type"),
+        }
+    }
+}
+
+impl From<&Type> for Arc<[Type]> {
+    fn from(val: &Type) -> Self {
+        match val {
+            Type::Collection(c) => c.clone(),
             _ => panic!("Recieved unrecognized type"),
         }
     }
