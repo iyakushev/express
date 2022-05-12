@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 extern crate express;
 use express::types;
 use express::xmacro::runtime_callable;

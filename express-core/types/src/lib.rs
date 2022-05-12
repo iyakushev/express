@@ -46,6 +46,9 @@ impl Callable for Function {
 
 /// This is a public Callable trait which lets
 /// any function be runable inside.
+/// ## Why?
+/// Because rust calling conventions (Fn traits) are still unstable.
+/// Here is a [tracking issue](https://doc.rust-lang.org/stable/std/ops/trait.Fn.html#required-methods)
 pub trait Callable {
     fn call(&self, args: Box<[Type]>) -> Option<Type>;
 }
