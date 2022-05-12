@@ -43,28 +43,27 @@ mod test {
     use super::ma;
     use crate::fill_ts;
     use crate::timeseries::{TimeSeries, TimeStep};
-    use express::types::Callable;
 
-    // #[test]
-    // pub fn test_smaller_slices() {
-    //     let stack: TimeSeries = fill_ts![1.0; 2.0];
-    //     let window = 15.0;
-    //     assert_eq!(ma.call(Box::new([stack.deref(), window])), None)
-    // }
+    #[test]
+    pub fn test_smaller_slices() {
+        let stack: TimeSeries = fill_ts![1.0; 2.0];
+        let window = 15.0;
+        assert_eq!(ma(stack.deref().into(), window), None)
+    }
 
-    // #[test]
-    // pub fn test_full_vec_pass() {
-    //     let stack: TimeSeries = fill_ts![1.0, 0.0; 2.0, 1.0; 3.0, 3.0];
-    //     let window = 3.0;
-    //     assert_eq!(ma.call(stack.deref(), window), Some(2.0))
-    // }
+    #[test]
+    pub fn test_full_vec_pass() {
+        let stack: TimeSeries = fill_ts![1.0, 0.0; 2.0, 1.0; 3.0, 3.0];
+        let window = 3.0;
+        assert_eq!(ma(stack.deref().into(), window), Some(2.0))
+    }
 
-    // #[test]
-    // pub fn test_range_inclusivity() {
-    //     // NOTE(iy): 3 seconds must be passed for computation
-    //     let stack: TimeSeries = fill_ts![10.0, 0.0; 11.0, 0.9; 12.0, 3.0; 13.0, 4.0];
-    //     assert_eq!(stack.deref().first().unwrap().price, 10.0);
-    //     let window = 3.0;
-    //     assert_eq!(ma.call(stack.deref(), window), Some(12.0))
-    // }
+    #[test]
+    pub fn test_range_inclusivity() {
+        // NOTE(iy): 3 seconds must be passed for computation
+        let stack: TimeSeries = fill_ts![10.0, 0.0; 11.0, 0.9; 12.0, 3.0; 13.0, 4.0];
+        assert_eq!(stack.deref().first().unwrap().price, 10.0);
+        let window = 3.0;
+        assert_eq!(ma(stack.deref().into(), window), Some(12.0))
+    }
 }

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
-use quote::quote;
-use syn::{spanned::Spanned, FnArg, ItemConst, Pat, ReturnType};
+use quote::{format_ident, quote};
+use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 
 /// This is a special macro that qualifies given function
 /// as a runtime acceptable. Note that the function can't
@@ -57,8 +57,8 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     }
-    //let fn_name = format_ident!("_{}", function.sig.ident);
-    let fn_name = function.sig.ident;
+    let fn_name = format_ident!("{}_xprs", function.sig.ident);
+    let attrs = function.attrs.clone();
     if let ReturnType::Default = function.sig.output {
         return syn::Error::new(
             function.sig.output.span(),
@@ -68,14 +68,17 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         .into();
     }
 
-    let stmts = function.block.stmts;
+    let stmts = function.block.stmts.clone();
     quote! {
         use types::{Callable, Type, FN_REGISTRY};
+
+        #function
 
         #[allow(non_camel_case_types)]
         pub struct #fn_name;
 
         impl Callable for #fn_name {
+            #( #attrs )*
             #[inline]
             fn call(&self, args: Box<[Type]>) -> Option<Type> {
                 #( #arguments )*

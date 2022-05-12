@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use std::{collections::BTreeMap, fmt::Debug, rc::Rc, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
 
 /// Representation of valid runtime types.
 /// Every function that implements [Callable] trait must
