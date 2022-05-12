@@ -22,12 +22,12 @@ pub type FnReg<'n, Val> = Lazy<BTreeMap<&'n str, Val>>;
 /// Each `fn` annotated with proc-macro `#[runtime_callable]` adds itself
 /// to this registry which allows runtime to quickly lookup callable struct
 /// by its value.
-pub static FN_REGISTRY: FnReg<Function> = Lazy::new(|| BTreeMap::new());
+pub static mut FN_REGISTRY: FnReg<Function> = Lazy::new(|| BTreeMap::new());
 
 //pub static KW: phf::Map<&'static str, Function> = ;
 
 /// A registry that holds named constants and named results of const expressions.
-pub static CONST_REGISTRY: FnReg<f64> = Lazy::new(|| BTreeMap::new());
+pub static mut CONST_REGISTRY: FnReg<f64> = Lazy::new(|| BTreeMap::new());
 
 /// Automatically implements bijection conversion traits
 /// for types __Type(T) <-> T__.
@@ -119,7 +119,7 @@ pub struct TimeStep {
 /// not contain any side effects. This is guranteed by the
 /// `Callable` trait contract whitch takes only immutable
 /// reference to self.
-pub struct Function(Box<dyn Callable + Send + Sync>);
+pub struct Function(pub Box<dyn Callable + Send + Sync>);
 
 impl Debug for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
+use syn::{spanned::Spanned, FnArg, ItemConst, Pat, ReturnType};
 
 /// This is a special macro that qualifies given function
 /// as a runtime acceptable. Note that the function can't
@@ -84,9 +84,4 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     .into()
-}
-
-#[proc_macro]
-pub fn register_constant(tt: TokenStream) -> TokenStream {
-    tt
 }
