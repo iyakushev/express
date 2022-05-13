@@ -15,6 +15,14 @@ pub struct Context {
 }
 
 impl Context {
+    /// Constructs a new empty context
+    fn new() -> Self {
+        Self {
+            ns_fn: Namespace::new(),
+            ns_const: Namespace::new(),
+        }
+    }
+
     fn populate_prelude(&mut self) {
         todo!()
     }
@@ -108,5 +116,40 @@ impl Visit<Expression> for Context {
             Expression::BinOp(..) => self.visit_binop(expr),
             Expression::UnOp(..) => self.visit_unop(expr),
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use express::lang::parser::parse_expression;
+    type Ex = Expression;
+    type Lt = Literal;
+
+    #[test]
+    pub fn test_const_inline() {
+        let expression = Ex::Const(Lt::Ident("PI".to_string()));
+        let mut ctx = Context::new();
+        ctx.register_constant("PI", 3.14);
+        let result = ctx.visit_expr(expression).unwrap();
+        assert_eq!(result, IRNode::Number(3.14));
+    }
+
+    #[test]
+    pub fn test_const_inline_add() {
+        let (_, expression) = parse_expression("PI + PI").unwrap();
+        let mut ctx = Context::new();
+        ctx.register_constant("PI", 3.14);
+        let result = ctx.visit_expr(expression).unwrap();
+        assert_eq!(result, IRNode::Number(3.14 + 3.14));
+    }
+
+    #[test]
+    pub fn test_const_inline_paren() {
+        let (_, expression) = parse_expression("PI + (3 - 2)").unwrap();
+        let mut ctx = Context::new();
+        ctx.register_constant("PI", 3.14);
+        let result = ctx.visit_expr(expression).unwrap();
+        assert_eq!(result, IRNode::Number(3.14 - 1.0));
     }
 }
