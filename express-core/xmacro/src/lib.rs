@@ -90,3 +90,13 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
     }
     .into()
 }
+
+#[proc_macro]
+pub fn resolve_name(item: TokenStream) -> TokenStream {
+    let name: syn::Ident = syn::parse_macro_input!(item);
+    let resolved = format_ident!("{}_xprs", name);
+    quote! {
+        #resolved
+    }
+    .into()
+}

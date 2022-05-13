@@ -139,6 +139,7 @@ mod test {
                 println!("\nEXPR: {}\n{:?}", $expr, expression);
                 let mut ctx = Context::new();
                 $( ctx.register_constant($cnst, $cval); );*
+                $( ctx.register_function($fns, $fval); );*
                 ctx.visit_expr(expression).unwrap()
             }
         };
@@ -182,7 +183,8 @@ mod test {
 
     #[test]
     pub fn test_inline_fn_expr() {
-        let result = test_expr!("-add_answer(1)"; "Foo" => 1.0;);
+        let result =
+            test_expr!("-add_answer(1)"; "Foo" => 1.0; "add_answer" => Rc::new(add_answer_xprs));
         assert_eq!(
             result,
             IRNode::UnOp(
@@ -191,6 +193,29 @@ mod test {
                     vec![IRNode::Number(1.0)]
                 )),
                 Operation::Minus,
+            )
+        );
+    }
+
+    #[test]
+    pub fn test_inline_const_fn_expr() {
+        let result = test_expr!("-add_answer(1) * PI + 2"; "PI" => 3.14; "add_answer" => Rc::new(add_answer_xprs));
+        assert_eq!(
+            result,
+            IRNode::BinOp(
+                Box::new(IRNode::BinOp(
+                    Box::new(IRNode::UnOp(
+                        Box::new(IRNode::Function(
+                            Rc::new(add_answer_xprs),
+                            vec![IRNode::Number(1.0)]
+                        )),
+                        Operation::Minus
+                    )),
+                    Box::new(IRNode::Number(3.14)),
+                    Operation::Times,
+                )),
+                Box::new(IRNode::Number(2.0)),
+                Operation::Plus,
             )
         );
     }
