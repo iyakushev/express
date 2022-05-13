@@ -14,6 +14,29 @@ pub enum Operation {
     Factorial,
 }
 
+impl Operation {
+    #[inline]
+    pub fn eval(&self, lhs: f64, rhs: f64) -> f64 {
+        match self {
+            Operation::Plus => lhs + rhs,
+            Operation::Minus => lhs - rhs,
+            Operation::Times => lhs * rhs,
+            Operation::Divide => lhs / rhs,
+            Operation::Power => lhs.powf(rhs),
+            Operation::Factorial => (rhs as usize..1).fold(1.0, |acc, val| acc * val as f64),
+        }
+    }
+
+    #[inline]
+    pub fn unary_eval(&self, rhs: f64) -> f64 {
+        match self {
+            Operation::Factorial => (rhs as usize..1).fold(1.0, |acc, val| acc * val as f64),
+            Operation::Minus => -1.0 * rhs,
+            _ => rhs,
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Const(Literal),
@@ -25,54 +48,13 @@ pub enum Expression {
     UnOp(Operation, Box<Expression>),
 }
 
-// pub enum Optimizable<T> {
-//     Opt(T),
-//     NonOpt,
-// }
-//
-// /// Provides a Visitor pattern interface to the Expression
-// trait Visit {
-//     fn visit_const(&mut self, c: &Expression) -> Literal;
-//     fn visit_fn(&mut self, f: &Expression) -> Literal;
-//     fn visit_binop(&mut self, bop: &Expression) -> Literal;
-//     fn visit_unop(&mut self, unop: &Expression) -> Expression;
-// }
-//
-// impl Visit for Expression {
-//     fn visit_const(&mut self, c: &Expression) -> Literal {
-//         if let Expression::Const(lit) = *c {
-//             lit
-//         } else {
-//             unreachable!()
-//         }
-//     }
-//
-//     fn visit_fn(&mut self, f: &Expression) -> (String, Vec<Expression>) {
-//         if let Expression::Function { name: n, args: a } = *f {
-//             (n, a)
-//         }
-//     }
-//
-//     fn visit_binop(&mut self, bop: &Expression) -> f64 {
-//         todo!()
-//     }
-//
-//     fn visit_unop(&mut self, unop: &Expression) -> f64 {
-//         todo!()
-//     }
-// }
-//
-// /// Simplifies AST expression
-// pub fn optimize(expr: Optimizable<Expression>) -> Optimizable<Expression> {
-//     if let Opt(e) = expr {
-//         match e {
-//             Expression::BinOp(lhs, rhs, op) => if matches!(optimize(lhs), Some(val)) {},
-//             Expression::UnOp(op, rhs) => {}
-//             Expression::Const(lit) => match lit {
-//                 Literal::Ident(name) => unimplemented!(),
-//                 Literal::Number(num) => Optimizable::Opt(num),
-//             },
-//             _ => Optimizable::NonOpt,
-//         }
-//     }
-// }
+/// Provides a Visitor pattern interface to the Expression
+pub trait Visit<T> {
+    type Returns;
+
+    fn visit_const(&self, cnst: T) -> Result<Self::Returns, String>;
+    fn visit_fn(&self, xfn: T) -> Result<Self::Returns, String>;
+    fn visit_binop(&self, bin: T) -> Result<Self::Returns, String>;
+    fn visit_unop(&self, un: T) -> Result<Self::Returns, String>;
+    fn visit_expr(&self, expr: T) -> Result<Self::Returns, String>;
+}

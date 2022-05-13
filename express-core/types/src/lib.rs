@@ -1,5 +1,5 @@
 use once_cell::sync::Lazy;
-use std::{collections::BTreeMap, fmt::Debug, sync::Arc};
+use std::{collections::BTreeMap, fmt::Debug, rc::Rc, sync::Arc};
 
 /// Representation of valid runtime types.
 /// Every function that implements [Callable] trait must
@@ -30,7 +30,8 @@ pub struct TimeStep {
 /// not contain any side effects. This is guranteed by the
 /// `Callable` trait contract whitch takes only immutable
 /// reference to self.
-pub struct Function(pub Box<dyn Callable + Send + Sync>);
+#[derive(Clone)]
+pub struct Function(pub Rc<dyn Callable + Send + Sync>);
 
 impl Debug for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

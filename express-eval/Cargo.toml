@@ -11,3 +11,4 @@ crate-type = ["lib"]
 [dependencies]
 std-expr = { path="../express-std"}
 express = { path="../express-core"}
+rayon = "1.5.2"
