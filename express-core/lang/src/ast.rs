@@ -52,9 +52,9 @@ pub enum Expression {
 pub trait Visit<T> {
     type Returns;
 
-    fn visit_const(&self, cnst: T) -> Result<Self::Returns, String>;
-    fn visit_fn(&self, xfn: T) -> Result<Self::Returns, String>;
-    fn visit_binop(&self, bin: T) -> Result<Self::Returns, String>;
-    fn visit_unop(&self, un: T) -> Result<Self::Returns, String>;
-    fn visit_expr(&self, expr: T) -> Result<Self::Returns, String>;
+    fn visit_const(&self, cnst: T) -> Self::Returns;
+    fn visit_fn(&self, xfn: T) -> Self::Returns;
+    fn visit_binop(&self, bin: T) -> Self::Returns;
+    fn visit_unop(&self, un: T) -> Self::Returns;
+    fn visit_expr(&self, expr: T) -> Self::Returns;
 }

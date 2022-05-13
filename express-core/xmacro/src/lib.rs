@@ -3,7 +3,7 @@ use quote::{format_ident, quote};
 use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 
 /// This is a special macro that qualifies given function
-/// as a runtime acceptable. Note that the function can't
+/// as a runtime acceptable. Note that function can't
 /// have any internal mutable state.
 /// # Example
 /// ```ignore
@@ -26,6 +26,9 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 ///     }
 /// }
 /// ```
+/// ## Limitations
+/// Note, each runtime_callable fn must be defined in a separate file.
+/// ## Safety:
 /// `unsafe` block helps to remove unnecessary bounds checks which are preformed
 /// at runtime before that.
 #[proc_macro_attribute]
@@ -79,8 +82,7 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl Callable for #fn_name {
             #( #attrs )*
-            #[inline]
-            fn call(&self, args: Box<[Type]>) -> Option<Type> {
+            fn call(&self, args: &[Type]) -> Option<Type> {
                 #( #arguments )*
                 Some({ #( #stmts )* }?.into())
             }

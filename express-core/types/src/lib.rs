@@ -40,7 +40,7 @@ impl Debug for Function {
 }
 
 impl Callable for Function {
-    fn call(&self, args: Box<[Type]>) -> Option<Type> {
+    fn call(&self, args: &[Type]) -> Option<Type> {
         self.0.call(args)
     }
 }
@@ -51,7 +51,7 @@ impl Callable for Function {
 /// Because rust calling conventions (Fn traits) are still unstable.
 /// Here is a [tracking issue](https://doc.rust-lang.org/stable/std/ops/trait.Fn.html#required-methods)
 pub trait Callable {
-    fn call(&self, args: Box<[Type]>) -> Option<Type>;
+    fn call(&self, args: &[Type]) -> Option<Type>;
 }
 
 pub type FnReg<'n, Val> = Lazy<BTreeMap<&'n str, Val>>;

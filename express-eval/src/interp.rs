@@ -1,9 +1,18 @@
+use express::lang::ast::Visit;
+
 use crate::ctx::Context;
 use crate::formula::Formula;
-use std::collections::BTreeMap;
+use crate::ir::IRNode;
+use std::intrinsics::unreachable;
 use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
+
+/// This is the return type of any formula computation.
+/// While formulas can handle any type from `express::types::Type`
+/// as either input or output types, result of the final expression
+/// node must be of type `IReturn`
+type IReturn = f64;
 
 macro_rules! include_std {
     ($obj: expr, $m: path , $name: ident) => {
@@ -30,5 +39,70 @@ impl Interpreter {
     /// Evaluates interpreter context
     pub fn eval() {
         unimplemented!()
+    }
+}
+
+impl Visit<&IRNode> for Interpreter {
+    type Returns = Option<IReturn>;
+
+    // NOTE(iy): This call is unused because visit_expr
+    // already handles extraction of a constant
+    fn visit_const(&self, cnst: &IRNode) -> Self::Returns {
+        unreachable!()
+    }
+
+    fn visit_fn(&self, xfn: &IRNode) -> Self::Returns {
+        unreachable!()
+    }
+
+    fn visit_binop(&self, bin: &IRNode) -> Self::Returns {
+        unreachable!()
+    }
+
+    fn visit_unop(&self, un: &IRNode) -> Self::Returns {
+        unreachable!()
+    }
+
+    fn visit_expr(&self, expr: &IRNode) -> Self::Returns {
+        match expr {
+            IRNode::Number(n) => Some(*n),
+            IRNode::Function(fn_obj, args) => {
+                Some(fn_obj.call(args.iter().map(|arg| self.visit_expr(arg)?).into()))
+            }
+            IRNode::BinOp(lhs, rhs, op) => {
+                Some(op.eval(self.visit_expr(lhs)?, self.visit_expr(rhs)?))
+            }
+            IRNode::UnOp(rhs, op) => Some(op.unary_eval(self.visit_expr(&*rhs)?)),
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use express::lang::parser::parse_expression;
+    use express::types;
+    use express::xmacro::runtime_callable;
+
+    #[runtime_callable]
+    fn add(x: f64, y: f64) -> Option<f64> {
+        Some(x + y)
+    }
+
+    macro_rules! test_expr {
+        ($expr: expr; $($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
+            {
+                let (_, expression) = parse_expression($expr).unwrap();
+                println!("\nEXPR: {}\n{:?}", $expr, expression);
+                let mut ctx = Context::new();
+                $( ctx.register_constant($cnst, $cval); );*
+                ctx.visit_expr(expression).unwrap()
+            }
+        };
+    }
+
+    #[test]
+    pub fn simple_expression() {
+        let expr = test_expr!("2 + foo(12 - 2, bar())"; ;);
     }
 }

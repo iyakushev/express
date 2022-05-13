@@ -17,7 +17,7 @@ pub struct Context {
 
 impl Context {
     /// Constructs a new empty context
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             ns_fn: Namespace::new(),
             ns_const: Namespace::new(),
@@ -48,9 +48,9 @@ impl Context {
 }
 
 impl Visit<Expression> for Context {
-    type Returns = IRNode;
+    type Returns = Result<IRNode, String>;
 
-    fn visit_const(&self, cnst: Expression) -> Result<Self::Returns, String> {
+    fn visit_const(&self, cnst: Expression) -> Self::Returns {
         if let Expression::Const(c) = cnst {
             match c {
                 Literal::Number(num) => return Ok(IRNode::Number(num)),
@@ -65,7 +65,7 @@ impl Visit<Expression> for Context {
         Err(format!("Tried to visit const but it has other type"))
     }
 
-    fn visit_fn(&self, xfn: Expression) -> Result<Self::Returns, String> {
+    fn visit_fn(&self, xfn: Expression) -> Self::Returns {
         if let Expression::Function {
             name: Literal::Ident(name),
             args,
@@ -83,7 +83,7 @@ impl Visit<Expression> for Context {
         Err(format!("Tried to visit function but it has other type"))
     }
 
-    fn visit_binop(&self, bin: Expression) -> Result<Self::Returns, String> {
+    fn visit_binop(&self, bin: Expression) -> Self::Returns {
         if let Expression::BinOp(lhs, rhs, op) = bin {
             let lhs = self.visit_expr(*lhs)?;
             let rhs = self.visit_expr(*rhs)?;
@@ -97,7 +97,7 @@ impl Visit<Expression> for Context {
         ))
     }
 
-    fn visit_unop(&self, un: Expression) -> Result<Self::Returns, String> {
+    fn visit_unop(&self, un: Expression) -> Self::Returns {
         if let Expression::UnOp(op, e) = un {
             let rhs = self.visit_expr(*e)?;
             if let IRNode::Number(rhs) = rhs {
@@ -110,7 +110,7 @@ impl Visit<Expression> for Context {
         ))
     }
 
-    fn visit_expr(&self, expr: Expression) -> Result<Self::Returns, String> {
+    fn visit_expr(&self, expr: Expression) -> Self::Returns {
         match expr {
             Expression::Const(_) => self.visit_const(expr),
             Expression::Function { .. } => self.visit_fn(expr),
