@@ -73,7 +73,7 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let stmts = function.block.stmts.clone();
     quote! {
-        use types::{Callable, Type, FN_REGISTRY};
+        use express::types::{Callable, Type, FN_REGISTRY};
 
         #function
 

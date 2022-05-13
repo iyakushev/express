@@ -2,6 +2,10 @@
 extern crate xmacro;
 use xmacro::runtime_callable;
 
+mod express {
+    pub use types;
+}
+
 #[runtime_callable]
 fn foo(input: f64) -> Option<f64> {
     Some(input * 2.0 + 2.0)

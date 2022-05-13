@@ -1,9 +1,7 @@
-use express::lang::ast::Visit;
-
 use crate::ctx::Context;
 use crate::formula::Formula;
 use crate::ir::IRNode;
-use std::intrinsics::unreachable;
+use express::lang::ast::Visit;
 use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
@@ -66,13 +64,16 @@ impl Visit<&IRNode> for Interpreter {
     fn visit_expr(&self, expr: &IRNode) -> Self::Returns {
         match expr {
             IRNode::Number(n) => Some(*n),
-            IRNode::Function(fn_obj, args) => {
-                Some(fn_obj.call(args.iter().map(|arg| self.visit_expr(arg)?).into()))
-            }
+            // IRNode::Function(fn_obj, args) => {
+            //     for arg in args {
+            //         self.visit_expr(arg)?;
+            //     }
+            // }
             IRNode::BinOp(lhs, rhs, op) => {
                 Some(op.eval(self.visit_expr(lhs)?, self.visit_expr(rhs)?))
             }
             IRNode::UnOp(rhs, op) => Some(op.unary_eval(self.visit_expr(&*rhs)?)),
+            _ => unimplemented!(),
         }
     }
 }
@@ -81,7 +82,6 @@ impl Visit<&IRNode> for Interpreter {
 mod test {
     use super::*;
     use express::lang::parser::parse_expression;
-    use express::types;
     use express::xmacro::runtime_callable;
 
     #[runtime_callable]
@@ -96,13 +96,13 @@ mod test {
                 println!("\nEXPR: {}\n{:?}", $expr, expression);
                 let mut ctx = Context::new();
                 $( ctx.register_constant($cnst, $cval); );*
-                ctx.visit_expr(expression).unwrap()
+                // ctx.visit_expr(expression).unwrap()
             }
         };
     }
 
     #[test]
     pub fn simple_expression() {
-        let expr = test_expr!("2 + foo(12 - 2, bar())"; ;);
+        let expr = test_expr!("2 + add(12 - 2, add(1, 1))"; ;);
     }
 }

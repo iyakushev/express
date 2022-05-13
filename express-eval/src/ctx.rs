@@ -1,14 +1,14 @@
-use std::{collections::BTreeMap, rc::Rc};
-
+use crate::ir::IRNode;
 use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function},
 };
-
-use crate::ir::IRNode;
+use std::{collections::BTreeMap, rc::Rc};
 
 type Namespace<T> = BTreeMap<String, T>;
 
+/// Holds evaluation context information such as functions
+/// that implement `Callable` trait and named constants.
 #[derive(Debug)]
 pub struct Context {
     pub ns_fn: Namespace<Function>,
@@ -123,7 +123,14 @@ impl Visit<Expression> for Context {
 #[cfg(test)]
 mod test {
     use super::*;
+    use express::lang::ast::Operation;
     use express::lang::parser::parse_expression;
+    use express::xmacro::runtime_callable;
+
+    #[runtime_callable]
+    fn add_answer(val: f64) -> Option<f64> {
+        Some(42.0 + val)
+    }
 
     macro_rules! test_expr {
         ($expr: expr; $($cnst: expr => $cval: expr),+; $($fns: expr => $fval: expr),*) => {
@@ -171,5 +178,20 @@ mod test {
     pub fn test_inline_un_expr() {
         let result = test_expr!("-Foo * 2 + (10**2)"; "Foo" => 1.0;);
         assert_eq!(result, IRNode::Number(-1.0 * 2.0 + (10.0f64.powf(2.0))));
+    }
+
+    #[test]
+    pub fn test_inline_fn_expr() {
+        let result = test_expr!("-add_answer(1)"; "Foo" => 1.0;);
+        assert_eq!(
+            result,
+            IRNode::UnOp(
+                Box::new(IRNode::Function(
+                    Rc::new(add_answer_xprs),
+                    vec![IRNode::Number(1.0)]
+                )),
+                Operation::Minus,
+            )
+        );
     }
 }

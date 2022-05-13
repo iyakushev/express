@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 use crate::ast::*;
-use nom::bytes::complete::tag;
+use nom::branch::permutation;
+use nom::bytes::complete::{tag, take_while1};
+use nom::character::is_alphanumeric;
 use nom::{
     branch::alt,
     character::complete::{alpha1, char, multispace0},
@@ -17,13 +19,19 @@ fn parse_number(input: &str) -> IResult<&str, Literal> {
     map(double, |num: f64| Literal::Number(num))(input)
 }
 
+fn _is_valid_ident(chr: char) -> bool {
+    is_alphanumeric(chr as u8) || chr == '_'
+}
+
 /// Parses any given identifier which is alphabetic
 /// ```ignore
 /// assert_eq!(parse_ident("abc"), Ok(("", Literal::Ident(String("abc")))))
 /// assert_eq!(parse_ident("1abc"), Err(...))
 /// ```
 fn parse_ident(input: &str) -> IResult<&str, Literal> {
-    map(alpha1, |ident: &str| Literal::Ident(ident.to_string()))(input)
+    map(take_while1(_is_valid_ident), |ident: &str| {
+        Literal::Ident(ident.to_string())
+    })(input)
 }
 
 fn parse_literal(input: &str) -> IResult<&str, Literal> {
