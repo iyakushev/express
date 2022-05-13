@@ -9,6 +9,7 @@ use crate::ir::IRNode;
 
 type Namespace<T> = BTreeMap<String, T>;
 
+#[derive(Debug)]
 pub struct Context {
     pub ns_fn: Namespace<Function>,
     pub ns_const: Namespace<f64>,
@@ -123,33 +124,52 @@ impl Visit<Expression> for Context {
 mod test {
     use super::*;
     use express::lang::parser::parse_expression;
-    type Ex = Expression;
-    type Lt = Literal;
+
+    macro_rules! test_expr {
+        ($expr: expr; $($cnst: expr => $cval: expr),+; $($fns: expr => $fval: expr),*) => {
+            {
+                let (_, expression) = parse_expression($expr).unwrap();
+                println!("\nEXPR: {}\n{:?}", $expr, expression);
+                let mut ctx = Context::new();
+                $( ctx.register_constant($cnst, $cval); );*
+                ctx.visit_expr(expression).unwrap()
+            }
+        };
+    }
 
     #[test]
     pub fn test_const_inline() {
-        let expression = Ex::Const(Lt::Ident("PI".to_string()));
-        let mut ctx = Context::new();
-        ctx.register_constant("PI", 3.14);
-        let result = ctx.visit_expr(expression).unwrap();
+        let result = test_expr!("PI"; "PI" => 3.14;);
         assert_eq!(result, IRNode::Number(3.14));
     }
 
     #[test]
     pub fn test_const_inline_add() {
-        let (_, expression) = parse_expression("PI + PI").unwrap();
-        let mut ctx = Context::new();
-        ctx.register_constant("PI", 3.14);
-        let result = ctx.visit_expr(expression).unwrap();
+        let result = test_expr!("PI + PI"; "PI" => 3.14;);
         assert_eq!(result, IRNode::Number(3.14 + 3.14));
     }
 
     #[test]
     pub fn test_const_inline_paren() {
-        let (_, expression) = parse_expression("PI + (3 - 2)").unwrap();
-        let mut ctx = Context::new();
-        ctx.register_constant("PI", 3.14);
-        let result = ctx.visit_expr(expression).unwrap();
+        let result = test_expr!("PI + (2 - 3)"; "PI" => 3.14;);
         assert_eq!(result, IRNode::Number(3.14 - 1.0));
+    }
+
+    #[test]
+    pub fn test_inline_paren() {
+        let result = test_expr!("2 + 2 * TWO"; "TWO" => 2.0;);
+        assert_eq!(result, IRNode::Number(6.0));
+    }
+
+    #[test]
+    pub fn test_const_inline_un() {
+        let result = test_expr!("-Foo"; "Foo" => 1.0;);
+        assert_eq!(result, IRNode::Number(-1.0));
+    }
+
+    #[test]
+    pub fn test_inline_un_expr() {
+        let result = test_expr!("-Foo * 2 + (10**2)"; "Foo" => 1.0;);
+        assert_eq!(result, IRNode::Number(-1.0 * 2.0 + (10.0f64.powf(2.0))));
     }
 }

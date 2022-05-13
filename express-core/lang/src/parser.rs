@@ -55,7 +55,7 @@ fn parse_parens(input: &str) -> IResult<&str, Expression> {
 
 /// Parses either a const/fn operand or expression inside parens
 fn parse_factor(input: &str) -> IResult<&str, Expression> {
-    preceded(multispace0, alt((parse_operand, parse_parens)))(input)
+    preceded(multispace0, alt((parse_operand, parse_parens, parse_unary)))(input)
 }
 
 /// Parses binary expression with exponents: __2**2__
@@ -139,7 +139,7 @@ fn parse_unary(input: &str) -> IResult<&str, Expression> {
 }
 
 fn _parse(input: &str) -> IResult<&str, Expression> {
-    alt((parse_unary, parse_binary))(input)
+    parse_binary(input)
 }
 
 /// Parses function expressions like `foo(<Expression, *>).*`
@@ -300,6 +300,16 @@ mod tests {
                                                 ),
                                                 Box::new(Expression::Const(Literal::Number(2.0))),
                                                 Operation::Times)
+        );
+
+        test_op!(parse_expression, "3.14 + (3 - 2)" =>  Expression::BinOp(
+                                                Box::new(Expression::Const(Literal::Number(3.14))),
+                                                Box::new(Expression::BinOp(
+                                                    Box::new(Expression::Const(Literal::Number(3.0))),
+                                                    Box::new(Expression::Const(Literal::Number(2.0))),
+                                                    Operation::Minus)
+                                                ),
+                                                Operation::Plus)
         );
     }
 
