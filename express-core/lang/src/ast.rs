@@ -22,7 +22,7 @@ impl Operation {
             Operation::Minus => lhs - rhs,
             Operation::Times => lhs * rhs,
             Operation::Divide => lhs / rhs,
-            Operation::Power => lhs.powf(rhs),
+            Operation::Power => rhs.powf(lhs),
             Operation::Factorial => (rhs as usize..1).fold(1.0, |acc, val| acc * val as f64),
         }
     }

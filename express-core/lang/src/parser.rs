@@ -14,12 +14,7 @@ use nom::{
 
 /// Parses number as a floating point. Any fp notation is valid
 fn parse_number(input: &str) -> IResult<&str, Literal> {
-    alt((
-        map(double, |num: f64| Literal::Number(num)),
-        map(preceded(tag("-"), double), |num: f64| {
-            Literal::Number(-1.0 * num)
-        }),
-    ))(input)
+    map(double, |num: f64| Literal::Number(num))(input)
 }
 
 /// Parses any given identifier which is alphabetic
@@ -217,12 +212,8 @@ mod tests {
     #[test]
     fn test_unary() {
         test_op!(parse_expression, "-12" =>
-                Expression::UnOp(
-                    Operation::Minus,
-                    Box::new(
-                        Expression::Const(
-                            Literal::Number(12.0)))
-        ));
+            Expression::Const(Literal::Number(-12.0))
+        );
         test_op!(parse_expression, "-ema()" => Expression::UnOp(
             Operation::Minus,
             Box::new(
