@@ -2,6 +2,7 @@ use crate::ctx::Context;
 use crate::formula::Formula;
 use crate::ir::IRNode;
 use express::lang::ast::Visit;
+use express::types::Type;
 use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
@@ -19,7 +20,7 @@ macro_rules! include_std {
     };
 }
 pub struct Interpreter {
-    pub ctx: Rc<Context>,
+    pub ctx: Context,
     pub formulas: Vec<Formula>,
 }
 
@@ -27,21 +28,23 @@ impl Interpreter {
     /// Creates a new interpreter context from
     pub fn new(formulas: &[NamedExpression], context: Context) -> Result<Self, String> {
         let mut fs = Vec::with_capacity(formulas.len());
-        let ctx = Rc::new(context);
         for (name, exp) in formulas {
-            fs.push(Formula::new(name, exp, ctx.clone())?);
+            fs.push(Formula::new(name, exp, &context)?);
         }
-        Ok(Self { ctx, formulas: fs })
+        Ok(Self {
+            ctx: context,
+            formulas: fs,
+        })
     }
 
     /// Evaluates interpreter context
-    pub fn eval() {
-        unimplemented!()
+    pub fn eval(&self, formula: &Formula) -> Option<Type> {
+        self.visit_expr(&formula.ast)
     }
 }
 
 impl Visit<&IRNode> for Interpreter {
-    type Returns = Option<IReturn>;
+    type Returns = Option<Type>;
 
     // NOTE(iy): This call is unused because visit_expr
     // already handles extraction of a constant
@@ -63,16 +66,24 @@ impl Visit<&IRNode> for Interpreter {
 
     fn visit_expr(&self, expr: &IRNode) -> Self::Returns {
         match expr {
-            IRNode::Number(n) => Some(*n),
-            // IRNode::Function(fn_obj, args) => {
-            //     for arg in args {
-            //         self.visit_expr(arg)?;
-            //     }
-            // }
-            IRNode::BinOp(lhs, rhs, op) => {
-                Some(op.eval(self.visit_expr(lhs)?, self.visit_expr(rhs)?))
+            IRNode::Number(n) => Some(Type::from(*n)),
+            IRNode::Function(fn_obj, args) => {
+                let mut resolved_args = Vec::with_capacity(args.len());
+                // resolves arguments
+                for arg in args {
+                    resolved_args.push(self.visit_expr(arg)?);
+                }
+                Some(fn_obj.call(resolved_args.as_slice())?.into())
             }
-            IRNode::UnOp(rhs, op) => Some(op.unary_eval(self.visit_expr(&*rhs)?)),
+            IRNode::BinOp(lhs, rhs, op) => {
+                let lhs: f64 = self.visit_expr(lhs)?.into();
+                let rhs: f64 = self.visit_expr(rhs)?.into();
+                Some(Type::Number(op.eval(lhs, rhs)))
+            }
+            IRNode::UnOp(rhs, op) => {
+                let rhs: f64 = self.visit_expr(rhs)?.into();
+                Some(Type::Number(op.unary_eval(rhs)))
+            }
             _ => unimplemented!(),
         }
     }
@@ -82,7 +93,7 @@ impl Visit<&IRNode> for Interpreter {
 mod test {
     use super::*;
     use express::lang::parser::parse_expression;
-    use express::xmacro::runtime_callable;
+    use express::xmacro::{resolve_name, runtime_callable};
 
     #[runtime_callable]
     fn add(x: f64, y: f64) -> Option<f64> {
@@ -90,19 +101,22 @@ mod test {
     }
 
     macro_rules! test_expr {
-        ($expr: expr; $($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
+        ($($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
             {
-                let (_, expression) = parse_expression($expr).unwrap();
-                println!("\nEXPR: {}\n{:?}", $expr, expression);
                 let mut ctx = Context::new();
                 $( ctx.register_constant($cnst, $cval); );*
-                // ctx.visit_expr(expression).unwrap()
+                $( ctx.register_function($fns, $fval); );*
+                ctx
             }
         };
     }
 
     #[test]
     pub fn simple_expression() {
-        let expr = test_expr!("2 + add(12 - 2, add(1, 1))"; ;);
+        let ctx = test_expr!(; "add" => Rc::new(resolve_name!(add)));
+        let i = Interpreter::new(&[("foo", "2 + add(12 - 2, add(1, 1))")], ctx).unwrap();
+        let f = &i.formulas[0];
+        let result: f64 = i.eval(f).unwrap().into();
+        assert_eq!(result, 14.0);
     }
 }
