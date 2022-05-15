@@ -43,6 +43,22 @@ impl Interpreter {
     }
 }
 
+/// Implements interator trait over interpreter.
+/// The return value of the `next` is a Box ptr to
+/// the slice of `Type`.
+/// Why `Box<T>`? GATs at the moment are unstable
+/// and the only way to use them is by swithing to
+/// the nightly toolchain.
+impl Iterator for Interpreter {
+    /// GATs are unstable at the moment.
+    /// We can not write &'r Option<Type>
+    type Item = Box<[Option<Type>]>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(self.formulas.iter().map(|f| self.eval(f)).collect())
+    }
+}
+
 impl Visit<&IRNode> for Interpreter {
     type Returns = Option<Type>;
 
@@ -92,7 +108,6 @@ impl Visit<&IRNode> for Interpreter {
 #[cfg(test)]
 mod test {
     use super::*;
-    use express::lang::parser::parse_expression;
     use express::xmacro::{resolve_name, runtime_callable};
 
     #[runtime_callable]

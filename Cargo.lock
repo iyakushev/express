@@ -66,15 +66,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
-name = "evalx"
-version = "0.1.0"
-dependencies = [
- "express",
- "rayon",
- "std-expr",
-]
-
-[[package]]
 name = "express"
 version = "0.1.0"
 dependencies = [
@@ -82,6 +73,24 @@ dependencies = [
  "nom",
  "types",
  "xmacro",
+]
+
+[[package]]
+name = "express-eval"
+version = "0.1.0"
+dependencies = [
+ "express",
+ "express-std",
+ "rayon",
+]
+
+[[package]]
+name = "express-std"
+version = "0.1.0"
+dependencies = [
+ "express",
+ "float-cmp",
+ "slice-deque",
 ]
 
 [[package]]
@@ -181,30 +190,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "once_cell"
-version = "1.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87f3e037eac156d1775da914196f0f37741a274155e34a0b7e427c35d2a2ecb9"
-
-[[package]]
-name = "phf"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabbf1ead8a5bcbc20f5f8b939ee3f5b0f6f281b6ad3468b84656b658b455259"
-dependencies = [
- "phf_shared",
-]
-
-[[package]]
-name = "phf_shared"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b6796ad771acdc0123d2a88dc428b5e38ef24456743ddb1744ed628f9815c096"
-dependencies = [
- "siphasher",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.37"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -253,12 +238,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d29ab0c6d3fc0ee92fe66e2d99f700eab17a8d57d1c1d3b748380fb20baa78cd"
 
 [[package]]
-name = "siphasher"
-version = "0.3.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7bd3e3206899af3f8b12af284fafc038cc1dc2b41d1b89dd17297221c5d225de"
-
-[[package]]
 name = "slice-deque"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -267,15 +246,6 @@ dependencies = [
  "libc",
  "mach",
  "winapi",
-]
-
-[[package]]
-name = "std-expr"
-version = "0.1.0"
-dependencies = [
- "express",
- "float-cmp",
- "slice-deque",
 ]
 
 [[package]]
@@ -292,10 +262,6 @@ dependencies = [
 [[package]]
 name = "types"
 version = "0.0.0"
-dependencies = [
- "once_cell",
- "phf",
-]
 
 [[package]]
 name = "unicode-xid"

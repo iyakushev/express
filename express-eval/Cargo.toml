@@ -1,5 +1,5 @@
 [package]
-name = "evalx"
+name = "express-eval"
 version = "0.1.0"
 edition = "2021"
 
@@ -9,6 +9,6 @@ edition = "2021"
 crate-type = ["lib"]
 
 [dependencies]
-std-expr = { path="../express-std"}
+express-std = { path="../express-std"}
 express = { path="../express-core"}
 rayon = "1.5.2"

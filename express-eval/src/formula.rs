@@ -3,7 +3,7 @@ use express::lang::{ast::Visit, parser::parse_expression};
 use express::types::Type;
 
 pub struct Formula {
-    name: String,
+    _name: String,
     pub ast: IRNode,
     pub result: Option<Type>,
 }
@@ -28,7 +28,7 @@ impl Formula {
             }
         };
         Ok(Self {
-            name: name.to_string(),
+            _name: name.to_string(),
             ast: eval_ctx.visit_expr(ast)?,
             result: None,
         })

@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate xmacro;
-use xmacro::runtime_callable;
+use xmacro::{resolve_name, runtime_callable};
 
 mod express {
     pub use types;
@@ -21,5 +21,6 @@ mod tests {
         fn upper(input: String) -> Option<String> {
             Some(input.to_uppercase())
         }
+        let foo = resolve_name!(upper);
     }
 }

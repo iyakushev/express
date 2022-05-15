@@ -24,7 +24,9 @@ impl Context {
         }
     }
 
-    fn populate_prelude(&mut self) {
+    /// Registers module constants and Callable functions
+    /// in the Interpreter context.
+    fn register_module(&mut self) {
         todo!()
     }
 
@@ -184,12 +186,12 @@ mod test {
     #[test]
     pub fn test_inline_fn_expr() {
         let result =
-            test_expr!("-add_answer(1)"; "Foo" => 1.0; "add_answer" => Rc::new(add_answer_xprs));
+            test_expr!("-add_answer(1)"; "Foo" => 1.0; "add_answer" => Rc::new(__add_answer));
         assert_eq!(
             result,
             IRNode::UnOp(
                 Box::new(IRNode::Function(
-                    Rc::new(add_answer_xprs),
+                    Rc::new(__add_answer),
                     vec![IRNode::Number(1.0)]
                 )),
                 Operation::Minus,
@@ -199,14 +201,14 @@ mod test {
 
     #[test]
     pub fn test_inline_const_fn_expr() {
-        let result = test_expr!("-add_answer(1) * PI + 2"; "PI" => 3.14; "add_answer" => Rc::new(add_answer_xprs));
+        let result = test_expr!("-add_answer(1) * PI + 2"; "PI" => 3.14; "add_answer" => Rc::new(__add_answer));
         assert_eq!(
             result,
             IRNode::BinOp(
                 Box::new(IRNode::BinOp(
                     Box::new(IRNode::UnOp(
                         Box::new(IRNode::Function(
-                            Rc::new(add_answer_xprs),
+                            Rc::new(__add_answer),
                             vec![IRNode::Number(1.0)]
                         )),
                         Operation::Minus

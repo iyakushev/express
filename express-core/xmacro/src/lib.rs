@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
+use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
 
 /// This is a special macro that qualifies given function
 /// as a runtime acceptable. Note that function can't
@@ -16,7 +16,7 @@ use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 /// ```
 /// This expands given function into runtime callable object:
 /// ```ignore
-/// use types::{Callable, Type, FN_REGISTRY};
+/// use types::{Callable, Type};
 /// #[allow(non_camel_case_types)]
 /// struct _foo;
 /// impl Callable for _foo{
@@ -60,7 +60,7 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     }
-    let fn_name = format_ident!("{}_xprs", function.sig.ident);
+    let fn_name = format_ident!("__{}", function.sig.ident);
     let attrs = function.attrs.clone();
     if let ReturnType::Default = function.sig.output {
         return syn::Error::new(
@@ -73,8 +73,9 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let stmts = function.block.stmts.clone();
     quote! {
-        use express::types::{Callable, Type, FN_REGISTRY};
+        use express::types::{Callable, Type};
 
+        #[allow(dead_code)]
         #function
 
         #[allow(non_camel_case_types)]
@@ -94,7 +95,7 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn resolve_name(item: TokenStream) -> TokenStream {
     let name: syn::Ident = syn::parse_macro_input!(item);
-    let resolved = format_ident!("{}_xprs", name);
+    let resolved = format_ident!("__{}", name);
     quote! {
         #resolved
     }

@@ -1,5 +1,4 @@
-use once_cell::sync::Lazy;
-use std::{collections::BTreeMap, fmt::Debug, rc::Rc, sync::Arc};
+use std::{fmt::Debug, rc::Rc, sync::Arc};
 
 /// Representation of valid runtime types.
 /// Every function that implements [Callable] trait must
@@ -53,19 +52,6 @@ impl Callable for Function {
 pub trait Callable {
     fn call(&self, args: &[Type]) -> Option<Type>;
 }
-
-pub type FnReg<'n, Val> = Lazy<BTreeMap<&'n str, Val>>;
-
-/// A registry that holds function types ready to be dispatched at runtime.
-/// Each `fn` annotated with proc-macro `#[runtime_callable]` adds itself
-/// to this registry which allows runtime to quickly lookup callable struct
-/// by its value.
-pub static mut FN_REGISTRY: FnReg<Function> = Lazy::new(|| BTreeMap::new());
-
-//pub static KW: phf::Map<&'static str, Function> = ;
-
-/// A registry that holds named constants and named results of const expressions.
-pub static mut CONST_REGISTRY: FnReg<f64> = Lazy::new(|| BTreeMap::new());
 
 /// Automatically implements bijection conversion traits
 /// for types __Type(T) <-> T__.
