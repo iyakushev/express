@@ -122,7 +122,8 @@ mod test {
             context ctx;
             library express_std;
             constants:
-                prefixed_import!(math : PI EPS);
+                //math::{PI, EPS};  // add groupping
+                math::PI;
         }
     }
 }

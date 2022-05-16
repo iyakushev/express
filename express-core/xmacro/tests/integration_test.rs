@@ -6,7 +6,7 @@ mod express {
     pub use types;
 }
 
-#[runtime_callable]
+#[runtime_callable(pure)]
 fn foo(input: f64) -> Option<f64> {
     Some(input * 2.0 + 2.0)
 }

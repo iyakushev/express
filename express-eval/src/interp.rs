@@ -3,7 +3,6 @@ use crate::formula::Formula;
 use crate::ir::IRNode;
 use express::lang::ast::Visit;
 use express::types::Type;
-use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -107,6 +106,8 @@ impl Visit<&IRNode> for Interpreter {
 
 #[cfg(test)]
 mod test {
+    use std::rc::Rc;
+
     use super::*;
     use express::xmacro::{resolve_name, runtime_callable};
 

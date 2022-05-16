@@ -2,6 +2,20 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
 
+fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
+    match syn::parse::<syn::Ident>(attr) {
+        Ok(tt) => match tt.to_string().as_str() {
+            "pure" => Ok(true),
+            "" => Ok(false),
+            _ => Err(syn::Error::new(
+                tt.span(),
+                "Macro accepts only one attribute 'pure'",
+            )),
+        },
+        Err(_) => Ok(false),
+    }
+}
+
 /// This is a special macro that qualifies given function
 /// as a runtime acceptable. Note that function can't
 /// have any internal mutable state.
@@ -9,7 +23,7 @@ use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
 /// ```ignore
 /// # #[macro_use] extern crate exmac;
 /// # use exmac::runtime_callable;
-/// #[runtime_callable]
+/// #[runtime_callable(pure)]
 /// fn foo(input: f64) -> f64 {
 ///     input + 3.14f64
 /// }
@@ -32,7 +46,11 @@ use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
 /// `unsafe` block helps to remove unnecessary bounds checks which are preformed
 /// at runtime before that.
 #[proc_macro_attribute]
-pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
+    let is_pure = match parse_purity_attr(attr) {
+        Ok(pure) => pure,
+        Err(e) => return e.to_compile_error().into(),
+    };
     let function: syn::ItemFn = syn::parse_macro_input!(item);
     let mut arguments: Vec<_> = Vec::new();
     for (idx, arg) in function.sig.inputs.clone().into_iter().enumerate() {
@@ -86,6 +104,10 @@ pub fn runtime_callable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             fn call(&self, args: &[Type]) -> Option<Type> {
                 #( #arguments )*
                 Some({ #( #stmts )* }?.into())
+            }
+
+            fn is_pure(&self) -> bool {
+                #is_pure
             }
         }
     }

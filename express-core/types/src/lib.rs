@@ -42,6 +42,10 @@ impl Callable for Function {
     fn call(&self, args: &[Type]) -> Option<Type> {
         self.0.call(args)
     }
+
+    fn is_pure(&self) -> bool {
+        self.0.is_pure()
+    }
 }
 
 /// This is a public Callable trait which lets
@@ -51,6 +55,13 @@ impl Callable for Function {
 /// Here is a [tracking issue](https://doc.rust-lang.org/stable/std/ops/trait.Fn.html#required-methods)
 pub trait Callable {
     fn call(&self, args: &[Type]) -> Option<Type>;
+
+    /// Signifies if the Callable object stands for a pure function.
+    /// If all of its arguments are Const as well (or pure functions with const args).
+    /// Then the call can be performed at the graph "build time" rather than runtime.
+    fn is_pure(&self) -> bool {
+        false
+    }
 }
 
 /// Automatically implements bijection conversion traits
