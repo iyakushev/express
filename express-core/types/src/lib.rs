@@ -135,6 +135,39 @@ impl From<&Type> for Arc<[TimeStep]> {
     }
 }
 
+macro_rules! convert_number {
+    ($num_t: tt) => {
+        impl From<Type> for $num_t {
+            fn from(val: Type) -> Self {
+                match val {
+                    Type::Number(n) => n as $num_t,
+                    _ => panic!("Recieved unrecognized type"),
+                }
+            }
+        }
+        impl From<&Type> for $num_t {
+            fn from(val: &Type) -> Self {
+                match val {
+                    Type::Number(n) => *n as $num_t,
+                    _ => panic!("Recieved unrecognized type"),
+                }
+            }
+        }
+
+        impl From<$num_t> for Type {
+            fn from(val: $num_t) -> Self {
+                Type::Number(val as f64)
+            }
+        }
+    };
+}
+
+convert_number!(isize);
+convert_number!(usize);
+convert_number!(i32);
+convert_number!(i64);
+convert_number!(f32);
+
 // NOTE(iy): Additional conversion for tuple f64 into TimeStep
 // might be useful.
 impl From<Type> for (f64, f64) {
