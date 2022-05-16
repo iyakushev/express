@@ -1,5 +1,4 @@
 use crate::ir::IRNode;
-use core::slice::SlicePattern;
 use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function, Type},
@@ -56,12 +55,12 @@ impl Visit<Expression> for Context {
     fn visit_const(&self, cnst: Expression) -> Self::Returns {
         if let Expression::Const(c) = cnst {
             match c {
-                Literal::Number(num) => return Ok(IRNode::Const(Type::Number(num))),
+                Literal::Number(num) => return Ok(IRNode::Value(Type::Number(num))),
                 Literal::Ident(id) => {
                     if let Some(val) = self.find_constant(id.as_str()) {
-                        return Ok(IRNode::Const(Type::Number(val)));
+                        return Ok(IRNode::Value(Type::Number(val)));
                     } else {
-                        return Ok(IRNode::Const(Type::String(id)));
+                        return Ok(IRNode::Value(Type::String(id)));
                     }
                 }
             };
@@ -80,9 +79,32 @@ impl Visit<Expression> for Context {
             for arg in args {
                 arguments.push(self.visit_expr(arg)?);
             }
+
             if let Some(f) = self.find_function(name.as_str()) {
-                if f.0.is_pure() && arguments.iter().all(|arg| matches!(arg, IRNode::Const(_))) {
-                    Ok(IRNode::from(f.0.call(arguments.as_slice()).into()));
+                if f.argcnt() != arguments.len() {
+                    return Err(format!(
+                        "Functions recieved unexpected number of arguments: {} ({} needed)",
+                        arguments.len(),
+                        f.argcnt()
+                    ));
+                }
+                // Try to simplify fn call
+                if f.is_pure() {
+                    if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {
+                        return Ok(IRNode::Function(f.0.clone(), arguments));
+                    } else {
+                        let values: Box<[Type]> = arguments
+                            .into_iter()
+                            .map(|arg| match arg {
+                                IRNode::Value(t) => t,
+                                _ => unreachable!(),
+                            })
+                            .collect();
+                        if let Some(result) = f.call(&*values) {
+                            return Ok(IRNode::Value(result));
+                        }
+                        return Err(format!("Pure function with const arguments returned None"));
+                    }
                 } else {
                     return Ok(IRNode::Function(f.0.clone(), arguments));
                 }
@@ -97,7 +119,15 @@ impl Visit<Expression> for Context {
             let lhs = self.visit_expr(*lhs)?;
             let rhs = self.visit_expr(*rhs)?;
             return match (&lhs, &rhs) {
-                (IRNode::Const(l), IRNode::Const(r)) => Ok(IRNode::Const(op.eval(*l, *r))),
+                (IRNode::Value(Type::Number(l)), IRNode::Value(Type::Number(r))) => {
+                    Ok(IRNode::Value(Type::Number(op.eval(*l, *r))))
+                }
+                (IRNode::Value(l), IRNode::Value(r)) => {
+                    return Err(format!(
+                        "Cannot produce binary opertation between types {:?} and {:?}",
+                        l, r
+                    ))
+                }
                 _ => Ok(IRNode::BinOp(Box::new(lhs), Box::new(rhs), op)),
             };
         }
@@ -109,8 +139,8 @@ impl Visit<Expression> for Context {
     fn visit_unop(&self, un: Expression) -> Self::Returns {
         if let Expression::UnOp(op, e) = un {
             let rhs = self.visit_expr(*e)?;
-            if let IRNode::Const(rhs) = rhs {
-                return Ok(IRNode::Const(op.unary_eval(rhs)));
+            if let IRNode::Value(Type::Number(rhs)) = rhs {
+                return Ok(IRNode::Value(Type::Number(op.unary_eval(rhs))));
             }
             return Ok(IRNode::UnOp(Box::new(rhs), op));
         }
@@ -141,8 +171,18 @@ mod test {
         Some(42.0 + val)
     }
 
+    #[runtime_callable(pure)]
+    fn succ(val: f64) -> Option<f64> {
+        Some(val + 1.0)
+    }
+
+    #[runtime_callable(pure)]
+    fn add(lhs: f64, rhs: f64) -> Option<f64> {
+        Some(rhs + lhs)
+    }
+
     macro_rules! test_expr {
-        ($expr: expr; $($cnst: expr => $cval: expr),+; $($fns: expr => $fval: expr),*) => {
+        ($expr: expr; $($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
             {
                 let (_, expression) = parse_expression($expr).unwrap();
                 println!("\nEXPR: {}\n{:?}", $expr, expression);
@@ -157,37 +197,40 @@ mod test {
     #[test]
     pub fn test_const_inline() {
         let result = test_expr!("PI"; "PI" => 3.14;);
-        assert_eq!(result, IRNode::Const(3.14));
+        assert_eq!(result, IRNode::Value(Type::Number(3.14)));
     }
 
     #[test]
     pub fn test_const_inline_add() {
         let result = test_expr!("PI + PI"; "PI" => 3.14;);
-        assert_eq!(result, IRNode::Const(3.14 + 3.14));
+        assert_eq!(result, IRNode::Value(Type::Number(3.14 + 3.14)));
     }
 
     #[test]
     pub fn test_const_inline_paren() {
         let result = test_expr!("PI + (2 - 3)"; "PI" => 3.14;);
-        assert_eq!(result, IRNode::Const(3.14 - 1.0));
+        assert_eq!(result, IRNode::Value(Type::Number(3.14 - 1.0)));
     }
 
     #[test]
     pub fn test_inline_paren() {
         let result = test_expr!("2 + 2 * TWO"; "TWO" => 2.0;);
-        assert_eq!(result, IRNode::Const(6.0));
+        assert_eq!(result, IRNode::Value(Type::Number(6.0)));
     }
 
     #[test]
     pub fn test_const_inline_un() {
         let result = test_expr!("-Foo"; "Foo" => 1.0;);
-        assert_eq!(result, IRNode::Const(-1.0));
+        assert_eq!(result, IRNode::Value(Type::Number(-1.0)));
     }
 
     #[test]
     pub fn test_inline_un_expr() {
         let result = test_expr!("-Foo * 2 + (10**2)"; "Foo" => 1.0;);
-        assert_eq!(result, IRNode::Const(-1.0 * 2.0 + (10.0f64.powf(2.0))));
+        assert_eq!(
+            result,
+            IRNode::Value(Type::Number(-1.0 * 2.0 + (10.0f64.powf(2.0))))
+        );
     }
 
     #[test]
@@ -199,7 +242,7 @@ mod test {
             IRNode::UnOp(
                 Box::new(IRNode::Function(
                     Rc::new(__add_answer),
-                    vec![IRNode::Const(1.0)]
+                    vec![IRNode::Value(Type::Number(1.0))]
                 )),
                 Operation::Minus,
             )
@@ -216,16 +259,40 @@ mod test {
                     Box::new(IRNode::UnOp(
                         Box::new(IRNode::Function(
                             Rc::new(__add_answer),
-                            vec![IRNode::Const(1.0)]
+                            vec![IRNode::Value(Type::Number(1.0))]
                         )),
                         Operation::Minus
                     )),
-                    Box::new(IRNode::Const(3.14)),
+                    Box::new(IRNode::Value(Type::Number(3.14))),
                     Operation::Times,
                 )),
-                Box::new(IRNode::Const(2.0)),
+                Box::new(IRNode::Value(Type::Number(2.0))),
                 Operation::Plus,
             )
         );
+    }
+
+    #[test]
+    pub fn test_pure_function_optimization() {
+        let result = test_expr!("succ(succ(succ(1)))"; ; "succ" => Rc::new(__succ));
+        assert_eq!(result, IRNode::Value(Type::Number(4.0)));
+    }
+
+    #[test]
+    pub fn test_pure_complex_optimization() {
+        let result = test_expr!("add_answer(succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Rc::new(__succ), "add_answer" => Rc::new(__add_answer));
+        assert_eq!(
+            result,
+            IRNode::Function(
+                Rc::new(__add_answer),
+                vec![IRNode::Value(Type::Number(16.0))]
+            )
+        );
+    }
+
+    #[test]
+    pub fn test_all_pure_optimization() {
+        let result = test_expr!("add(4, succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Rc::new(__succ), "add" => Rc::new(__add));
+        assert_eq!(result, IRNode::Value(Type::Number(20.0)));
     }
 }

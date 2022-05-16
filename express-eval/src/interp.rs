@@ -81,7 +81,11 @@ impl Visit<&IRNode> for Interpreter {
 
     fn visit_expr(&self, expr: &IRNode) -> Self::Returns {
         match expr {
-            IRNode::Value(n) => Some(Type::from(*n)),
+            // NOTE(iy): smelly part. We have to clone values.
+            // Its ok for Number/TimeStep/Collection(it only clones ptr) but might be bad for
+            // String.
+            // FIXME: Possibly introduce currying at optimization level?
+            IRNode::Value(n) => Some((*n).clone()),
             IRNode::Function(fn_obj, args) => {
                 let mut resolved_args = Vec::with_capacity(args.len());
                 // resolves arguments
@@ -109,6 +113,7 @@ mod test {
     use std::rc::Rc;
 
     use super::*;
+    use express::types::{Callable, Type};
     use express::xmacro::{resolve_name, runtime_callable};
 
     #[runtime_callable]

@@ -6,7 +6,7 @@ use std::{fmt::Debug, rc::Rc, sync::Arc};
 /// doesn't need to care about them thanks to the `#[runtime_callable]`
 /// macro which expands function declaration into a callable ZST structure
 /// with its arguments and return type being automatically converted via `From` trait implementations.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Number(f64),
     String(String),
@@ -43,6 +43,10 @@ impl Callable for Function {
         self.0.call(args)
     }
 
+    fn argcnt(&self) -> usize {
+        self.0.argcnt()
+    }
+
     fn is_pure(&self) -> bool {
         self.0.is_pure()
     }
@@ -55,6 +59,8 @@ impl Callable for Function {
 /// Here is a [tracking issue](https://doc.rust-lang.org/stable/std/ops/trait.Fn.html#required-methods)
 pub trait Callable {
     fn call(&self, args: &[Type]) -> Option<Type>;
+
+    fn argcnt(&self) -> usize;
 
     /// Signifies if the Callable object stands for a pure function.
     /// If all of its arguments are Const as well (or pure functions with const args).

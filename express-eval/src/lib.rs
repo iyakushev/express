@@ -90,6 +90,7 @@ mod test {
     use crate::ctx::Context;
 
     use super::*;
+    use express::types::{Callable, Type};
     use express::xmacro::runtime_callable;
     use express_std;
 

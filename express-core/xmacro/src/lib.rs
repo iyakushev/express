@@ -40,8 +40,6 @@ fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
 ///     }
 /// }
 /// ```
-/// ## Limitations
-/// Note, each runtime_callable fn must be defined in a separate file.
 /// ## Safety:
 /// `unsafe` block helps to remove unnecessary bounds checks which are preformed
 /// at runtime before that.
@@ -53,12 +51,13 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
     };
     let function: syn::ItemFn = syn::parse_macro_input!(item);
     let mut arguments: Vec<_> = Vec::new();
-    for (idx, arg) in function.sig.inputs.clone().into_iter().enumerate() {
+    let mut argcnt: usize = 0;
+    for arg in function.sig.inputs.clone().into_iter() {
         if let FnArg::Typed(t) = arg.clone() {
             if let Pat::Ident(id) = *t.pat.clone() {
                 let tp = t.ty;
                 let q = quote! {
-                    let #id : #tp = unsafe { args.get_unchecked(#idx).into() };
+                    let #id : #tp = unsafe { args.get_unchecked(#argcnt).into() };
                 };
                 arguments.push(q);
             } else {
@@ -77,6 +76,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
             .to_compile_error()
             .into();
         }
+        argcnt += 1;
     }
     let fn_name = format_ident!("__{}", function.sig.ident);
     let attrs = function.attrs.clone();
@@ -91,7 +91,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
 
     let stmts = function.block.stmts.clone();
     quote! {
-        use express::types::{Callable, Type};
+        // use express::types::{Callable, Type};
 
         #[allow(dead_code)]
         #function
@@ -104,6 +104,10 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
             fn call(&self, args: &[Type]) -> Option<Type> {
                 #( #arguments )*
                 Some({ #( #stmts )* }?.into())
+            }
+
+            fn argcnt(&self) -> usize {
+                #argcnt
             }
 
             fn is_pure(&self) -> bool {
