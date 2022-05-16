@@ -6,11 +6,11 @@ use std::{fmt::Debug, rc::Rc, sync::Arc};
 /// doesn't need to care about them thanks to the `#[runtime_callable]`
 /// macro which expands function declaration into a callable ZST structure
 /// with its arguments and return type being automatically converted via `From` trait implementations.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Type {
     Number(f64),
     String(String),
-    Function(Function),
+    // Function(Function),
     Collection(Arc<[TimeStep]>),
     TimeStep(TimeStep),
 }
@@ -89,7 +89,7 @@ macro_rules! bijection {
 
 bijection!(Type::Number => f64);
 bijection!(Type::String => String);
-bijection!(Type::Function => Function);
+// bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
 bijection!(Type::Collection => Arc<[TimeStep]>);
 

@@ -1,7 +1,8 @@
 use crate::ir::IRNode;
+use core::slice::SlicePattern;
 use express::{
     lang::ast::{Expression, Literal, Visit},
-    types::{Callable, Function},
+    types::{Callable, Function, Type},
 };
 use std::{collections::BTreeMap, rc::Rc};
 
@@ -55,12 +56,13 @@ impl Visit<Expression> for Context {
     fn visit_const(&self, cnst: Expression) -> Self::Returns {
         if let Expression::Const(c) = cnst {
             match c {
-                Literal::Number(num) => return Ok(IRNode::Number(num)),
+                Literal::Number(num) => return Ok(IRNode::Const(Type::Number(num))),
                 Literal::Ident(id) => {
                     if let Some(val) = self.find_constant(id.as_str()) {
-                        return Ok(IRNode::Number(val));
+                        return Ok(IRNode::Const(Type::Number(val)));
+                    } else {
+                        return Ok(IRNode::Const(Type::String(id)));
                     }
-                    return Err(format!("Failed to resolve named constant: {}", id));
                 }
             };
         };
@@ -73,12 +75,17 @@ impl Visit<Expression> for Context {
             args,
         } = xfn
         {
+            // simplimies function arguments
             let mut arguments = Vec::with_capacity(args.len());
             for arg in args {
                 arguments.push(self.visit_expr(arg)?);
             }
             if let Some(f) = self.find_function(name.as_str()) {
-                return Ok(IRNode::Function(f.0.clone(), arguments));
+                if f.0.is_pure() && arguments.iter().all(|arg| matches!(arg, IRNode::Const(_))) {
+                    Ok(IRNode::from(f.0.call(arguments.as_slice()).into()));
+                } else {
+                    return Ok(IRNode::Function(f.0.clone(), arguments));
+                }
             }
             return Err(format!("Failed to find function with a name {}", name));
         }
@@ -90,7 +97,7 @@ impl Visit<Expression> for Context {
             let lhs = self.visit_expr(*lhs)?;
             let rhs = self.visit_expr(*rhs)?;
             return match (&lhs, &rhs) {
-                (IRNode::Number(l), IRNode::Number(r)) => Ok(IRNode::Number(op.eval(*l, *r))),
+                (IRNode::Const(l), IRNode::Const(r)) => Ok(IRNode::Const(op.eval(*l, *r))),
                 _ => Ok(IRNode::BinOp(Box::new(lhs), Box::new(rhs), op)),
             };
         }
@@ -102,8 +109,8 @@ impl Visit<Expression> for Context {
     fn visit_unop(&self, un: Expression) -> Self::Returns {
         if let Expression::UnOp(op, e) = un {
             let rhs = self.visit_expr(*e)?;
-            if let IRNode::Number(rhs) = rhs {
-                return Ok(IRNode::Number(op.unary_eval(rhs)));
+            if let IRNode::Const(rhs) = rhs {
+                return Ok(IRNode::Const(op.unary_eval(rhs)));
             }
             return Ok(IRNode::UnOp(Box::new(rhs), op));
         }
@@ -150,37 +157,37 @@ mod test {
     #[test]
     pub fn test_const_inline() {
         let result = test_expr!("PI"; "PI" => 3.14;);
-        assert_eq!(result, IRNode::Number(3.14));
+        assert_eq!(result, IRNode::Const(3.14));
     }
 
     #[test]
     pub fn test_const_inline_add() {
         let result = test_expr!("PI + PI"; "PI" => 3.14;);
-        assert_eq!(result, IRNode::Number(3.14 + 3.14));
+        assert_eq!(result, IRNode::Const(3.14 + 3.14));
     }
 
     #[test]
     pub fn test_const_inline_paren() {
         let result = test_expr!("PI + (2 - 3)"; "PI" => 3.14;);
-        assert_eq!(result, IRNode::Number(3.14 - 1.0));
+        assert_eq!(result, IRNode::Const(3.14 - 1.0));
     }
 
     #[test]
     pub fn test_inline_paren() {
         let result = test_expr!("2 + 2 * TWO"; "TWO" => 2.0;);
-        assert_eq!(result, IRNode::Number(6.0));
+        assert_eq!(result, IRNode::Const(6.0));
     }
 
     #[test]
     pub fn test_const_inline_un() {
         let result = test_expr!("-Foo"; "Foo" => 1.0;);
-        assert_eq!(result, IRNode::Number(-1.0));
+        assert_eq!(result, IRNode::Const(-1.0));
     }
 
     #[test]
     pub fn test_inline_un_expr() {
         let result = test_expr!("-Foo * 2 + (10**2)"; "Foo" => 1.0;);
-        assert_eq!(result, IRNode::Number(-1.0 * 2.0 + (10.0f64.powf(2.0))));
+        assert_eq!(result, IRNode::Const(-1.0 * 2.0 + (10.0f64.powf(2.0))));
     }
 
     #[test]
@@ -192,7 +199,7 @@ mod test {
             IRNode::UnOp(
                 Box::new(IRNode::Function(
                     Rc::new(__add_answer),
-                    vec![IRNode::Number(1.0)]
+                    vec![IRNode::Const(1.0)]
                 )),
                 Operation::Minus,
             )
@@ -209,14 +216,14 @@ mod test {
                     Box::new(IRNode::UnOp(
                         Box::new(IRNode::Function(
                             Rc::new(__add_answer),
-                            vec![IRNode::Number(1.0)]
+                            vec![IRNode::Const(1.0)]
                         )),
                         Operation::Minus
                     )),
-                    Box::new(IRNode::Number(3.14)),
+                    Box::new(IRNode::Const(3.14)),
                     Operation::Times,
                 )),
-                Box::new(IRNode::Number(2.0)),
+                Box::new(IRNode::Const(2.0)),
                 Operation::Plus,
             )
         );

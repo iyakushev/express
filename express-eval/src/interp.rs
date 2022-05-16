@@ -81,7 +81,7 @@ impl Visit<&IRNode> for Interpreter {
 
     fn visit_expr(&self, expr: &IRNode) -> Self::Returns {
         match expr {
-            IRNode::Number(n) => Some(Type::from(*n)),
+            IRNode::Value(n) => Some(Type::from(*n)),
             IRNode::Function(fn_obj, args) => {
                 let mut resolved_args = Vec::with_capacity(args.len());
                 // resolves arguments
