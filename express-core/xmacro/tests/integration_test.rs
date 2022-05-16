@@ -22,6 +22,6 @@ mod tests {
         fn upper(input: String) -> Option<String> {
             Some(input.to_uppercase())
         }
-        let foo = resolve_name!(upper);
+        let _ = resolve_name!(upper);
     }
 }

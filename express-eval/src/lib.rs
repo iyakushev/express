@@ -3,6 +3,7 @@ pub mod formula;
 pub mod interp;
 pub mod ir;
 
+use express::xmacro::resolve_name;
 /// Registers functions and constants in the given interpreter context;
 /// Macro uses a custom syntax to expose constants and functions.
 /// ## Syntax
@@ -39,19 +40,19 @@ pub mod ir;
 #[macro_export]
 macro_rules! use_library {
     (context $ctx: expr;
-     library $lib_root: ident $(::$rinner: ident)*;
-     constants: $( $cname: ident $(::$cinner: ident)* );* ;
-     functions: $( $fname: ident $(::$finner: ident)* );* ;) => {{
+     library $lib_root: ident;
+     constants {$( $cname: ident $(::$cinner: ident)* );* ;}
+     functions {$( $fname: ident $(::$finner: ident)* );* ;}) => {{
 
         // Asserts that the type of the $ctx expression is ctx::Context
         let mut _ctx: ctx::Context = $ctx;
-        use_library!(context _ctx; library $lib_root$($rinner)*; constants: $( $cname$($cinner)* );* ;);
-        use_library!(context _ctx; library $lib_root$($rinner)*; functions: $( $fname$($finner)* );* ;);
+        use_library!(context _ctx; library $lib_root; constants {$( $cname$($cinner)* );* ;});
+        use_library!(context _ctx; library $lib_root; functions {$( $fname$($finner)* );* ;});
     }};
 
     (context $ctx: expr;
-     library $lib_root: ident $(::$rinner: ident)*;
-     constants: $( $cname: ident $(::$cinner: ident)* );* ;) => {{
+     library $lib_root: ident;
+     constants {$( $cname: ident $(::$cinner: ident)* );* ;}) => {{
         $(
             let _: ctx::Context = $ctx;
             let value = $lib_root::$cname$(::$cinner)*;
@@ -62,22 +63,17 @@ macro_rules! use_library {
     }};
 
     (context $ctx: expr;
-     library $lib_root: ident $(::$rinner: ident)*;
-     functions: $( $fname: ident $(::$finner: ident)* );* ;) => {{
+     library $lib_root: ident;
+     functions {$( $fname: ident $(::$finner: ident)* );* ;}) => {{
         $(
             let _: ctx::Context = $ctx;
-            let value = $lib_root::$fname$(::$finner)*;
+            let name = stringify!($(::$finner)*).split("::").last().unwrap().to_string();
+            let value = resolve_name!($lib_root::$fname$(::$finner)*);
             let mut name = stringify!($(::$finner)*).split("::").last().unwrap().to_string();
             remove_whitespace(&mut name);
             $ctx.register_function(name.as_str(), value)
         )*
     }};
-}
-
-macro_rules! prefixed_import {
-    ($prefix: ident $(::$inner: ident)* : $($name: ident)+) => {
-        $($prefix$(::$inner)*::$name;)*
-    };
 }
 
 #[allow(dead_code)]
@@ -105,26 +101,25 @@ mod test {
         use_library! {
             context ctx;
             library express_std;
-            constants:
+            constants {
                 math::PI;
                 math::EPS;
-            // functions:
-            //     math::log::log;
+            }
         };
         assert!(!ctx.ns_const.is_empty());
         assert_eq!(*ctx.ns_const.get("PI").unwrap(), express_std::math::PI);
         assert_eq!(*ctx.ns_const.get("EPS").unwrap(), express_std::math::EPS);
     }
 
-    #[test]
-    fn test_prefixed_import() {
-        let mut ctx = Context::new();
-        use_library! {
-            context ctx;
-            library express_std;
-            constants:
-                //math::{PI, EPS};  // add groupping
-                math::PI;
-        }
-    }
+    //#[test]
+    //fn test_prefixed_import() {
+    //    let mut ctx = Context::new();
+    //    use_library! {
+    //        context ctx;
+    //        library express_std;
+    //        functions {
+    //            math::log::log;
+    //        }
+    //    }
+    //}
 }

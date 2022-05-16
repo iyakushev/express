@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
+use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
 
 fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
     match syn::parse::<syn::Ident>(attr) {
@@ -14,6 +14,10 @@ fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
         },
         Err(_) => Ok(false),
     }
+}
+
+fn mangle_struct_name(name: syn::Ident) -> syn::Ident {
+    format_ident!("__{}", name)
 }
 
 /// This is a special macro that qualifies given function
@@ -78,7 +82,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
         argcnt += 1;
     }
-    let fn_name = format_ident!("__{}", function.sig.ident);
+    let fn_name = mangle_struct_name(function.sig.ident.clone());
     let attrs = function.attrs.clone();
     if let ReturnType::Default = function.sig.output {
         return syn::Error::new(
@@ -118,6 +122,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Resolves function name
 #[proc_macro]
 pub fn resolve_name(item: TokenStream) -> TokenStream {
     let name: syn::Ident = syn::parse_macro_input!(item);
@@ -126,4 +131,42 @@ pub fn resolve_name(item: TokenStream) -> TokenStream {
         #resolved
     }
     .into()
+}
+
+/// Registers functions and constants in the given interpreter context;
+/// Macro uses a custom syntax to expose constants and functions.
+/// ## Syntax
+/// Macro consists of 4 sections in total with __constants__ and __functions__
+/// being mutualy optional.
+/// (they can be used both at once, only one of them but never without any of them)
+/// : __context__ -- is a section where user passes a __Context__ object.
+/// : __library__ -- this declares a common library root which is used in later sections.
+/// : __constants__ -- registers constants.
+/// : __functions__ -- registers functions.
+///
+/// ```ignore
+/// use some_xpr_lib;
+///
+/// fn setup_interpreter() {
+///     let mut ctx = Context::new();
+///     // ...some other code...
+///     use_library! {
+///         context ctx;
+///         library some_xpr_lib::subcrate;
+///         constatns:
+///             path::const::math::FOO;
+///             path::const::lib::BAR;
+///         functions:
+///             other::path::book;
+///             other::path::math::sin;
+///     };
+///     // ...other library regestration...
+///     let intrp = Interpreter::new(ctx);
+///     // ...
+/// }
+/// ```
+/// For example, the resulting path of constant `FOO` is `some_xpr_lib::subcrate::path::const::math::FOO`.
+#[proc_macro]
+pub fn use_library(item: TokenStream) -> TokenStream {
+    item
 }

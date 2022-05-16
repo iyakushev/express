@@ -24,12 +24,6 @@ impl Context {
         }
     }
 
-    /// Registers module constants and Callable functions
-    /// in the Interpreter context.
-    fn register_module(&mut self) {
-        todo!()
-    }
-
     /// Registers given function in the interpreter context
     pub fn register_function(&mut self, name: &str, exp_fn: Rc<dyn Callable + Send + Sync>) {
         self.ns_fn.insert(name.to_string(), Function(exp_fn));
@@ -197,8 +191,8 @@ mod test {
                 let (_, expression) = parse_expression($expr).unwrap();
                 println!("\nEXPR: {}\n{:?}", $expr, expression);
                 let mut ctx = Context::new();
-                $( ctx.register_constant($cnst, $cval); );*
-                $( ctx.register_function($fns, $fval); );*
+                $( ctx.register_constant($cnst, $cval); )*
+                $( ctx.register_function($fns, $fval); )*
                 ctx.visit_expr(expression).unwrap()
             }
         };

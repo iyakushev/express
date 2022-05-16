@@ -1,11 +1,10 @@
 #![allow(dead_code)]
 use crate::ast::*;
-use nom::branch::permutation;
 use nom::bytes::complete::{tag, take_while1};
 use nom::character::is_alphanumeric;
 use nom::{
     branch::alt,
-    character::complete::{alpha1, char, multispace0},
+    character::complete::{char, multispace0},
     combinator::{cut, map},
     error::context,
     multi::{fold_many0, separated_list0},

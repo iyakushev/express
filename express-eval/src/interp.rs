@@ -10,14 +10,8 @@ type NamedExpression<'e> = (&'e str, &'e str);
 /// While formulas can handle any type from `express::types::Type`
 /// as either input or output types, result of the final expression
 /// node must be of type `IReturn`
-type IReturn = f64;
+//type IReturn = f64;
 
-macro_rules! include_std {
-    ($obj: expr, $m: path , $name: ident) => {
-        let strct = $m::$name::$name;
-        $obj.ctx_fn.insert($name, strct);
-    };
-}
 pub struct Interpreter {
     pub ctx: Context,
     pub formulas: Vec<Formula>,
@@ -63,19 +57,19 @@ impl Visit<&IRNode> for Interpreter {
 
     // NOTE(iy): This call is unused because visit_expr
     // already handles extraction of a constant
-    fn visit_const(&self, cnst: &IRNode) -> Self::Returns {
+    fn visit_const(&self, _: &IRNode) -> Self::Returns {
         unreachable!()
     }
 
-    fn visit_fn(&self, xfn: &IRNode) -> Self::Returns {
+    fn visit_fn(&self, _: &IRNode) -> Self::Returns {
         unreachable!()
     }
 
-    fn visit_binop(&self, bin: &IRNode) -> Self::Returns {
+    fn visit_binop(&self, _: &IRNode) -> Self::Returns {
         unreachable!()
     }
 
-    fn visit_unop(&self, un: &IRNode) -> Self::Returns {
+    fn visit_unop(&self, _: &IRNode) -> Self::Returns {
         unreachable!()
     }
 
@@ -103,7 +97,6 @@ impl Visit<&IRNode> for Interpreter {
                 let rhs: f64 = self.visit_expr(rhs)?.into();
                 Some(Type::Number(op.unary_eval(rhs)))
             }
-            _ => unimplemented!(),
         }
     }
 }
