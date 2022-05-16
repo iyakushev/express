@@ -181,6 +181,16 @@ mod test {
         Some(rhs + lhs)
     }
 
+    #[runtime_callable(pure)]
+    fn take_str(obj: String) -> Option<String> {
+        Some(format!("New {} ", obj))
+    }
+
+    #[runtime_callable(pure)]
+    fn repeat(astr: String, times: usize) -> Option<String> {
+        Some(astr.repeat(times))
+    }
+
     macro_rules! test_expr {
         ($expr: expr; $($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
             {
@@ -293,6 +303,17 @@ mod test {
     #[test]
     pub fn test_all_pure_optimization() {
         let result = test_expr!("add(4, succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Rc::new(__succ), "add" => Rc::new(__add));
-        assert_eq!(result, IRNode::Value(Type::Number(20.0)));
+        assert_eq!(result, IRNode::Value(20.0.into()));
+    }
+
+    #[test]
+    pub fn test_all_str_optimization() {
+        let result = test_expr!(
+            "repeat(take_str(blah), succ(succ(succ(2))))";;
+            "take_str" => Rc::new(__take_str), "repeat" => Rc::new(__repeat), "succ" => Rc::new(__succ));
+        assert_eq!(
+            result,
+            IRNode::Value(String::from("New blah New blah New blah New blah New blah ").into())
+        );
     }
 }
