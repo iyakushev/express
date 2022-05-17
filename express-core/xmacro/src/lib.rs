@@ -128,7 +128,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn resolve_name(item: TokenStream) -> TokenStream {
     let name: syn::Ident = syn::parse_macro_input!(item);
-    let resolved = format_ident!("__{}", name);
+    let resolved = mangle_struct_name(name);
     quote! {
         #resolved
     }
@@ -196,7 +196,7 @@ pub fn use_library(item: TokenStream) -> TokenStream {
         .values
         .into_iter()
         .map(|(name, path, target)| {
-            let trgt = format_ident!("__{}", target);
+            let trgt = mangle_struct_name(target);
             if !path.path.segments.is_empty() {
                 let mut full_path = root.clone();
                 full_path.path.segments.extend(path.path.segments);
