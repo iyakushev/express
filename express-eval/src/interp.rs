@@ -3,6 +3,7 @@ use crate::formula::Formula;
 use crate::ir::IRNode;
 use express::lang::ast::Visit;
 use express::types::Type;
+use express::xmacro::use_library;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -19,11 +20,29 @@ pub struct Interpreter {
 
 impl Interpreter {
     /// Creates a new interpreter context from
-    pub fn new(formulas: &[NamedExpression], context: Context) -> Result<Self, String> {
+    pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
         let mut fs = Vec::with_capacity(formulas.len());
         for (name, exp) in formulas {
             fs.push(Formula::new(name, exp, &context)?);
         }
+
+        use_library! {
+            context context;
+            library express_std;
+            constants {
+                math::PI;
+                math::EPS;
+                math::TAU;
+                math::LN2;
+            }
+
+            functions {
+                math::log;
+                math::ln;
+                timeseries::ema;
+            }
+        }
+
         Ok(Self {
             ctx: context,
             formulas: fs,
@@ -103,7 +122,6 @@ impl Visit<&IRNode> for Interpreter {
 
 #[cfg(test)]
 mod test {
-    use std::rc::Rc;
 
     use super::*;
     use express::types::{Callable, Type};
@@ -127,7 +145,7 @@ mod test {
 
     #[test]
     pub fn simple_expression() {
-        let ctx = test_expr!(; "add" => Rc::new(resolve_name!(add)));
+        let ctx = test_expr!(; "add" => Box::new(resolve_name!(add)));
         let i = Interpreter::new(&[("foo", "2 + add(12 - 2, add(1, 1))")], ctx).unwrap();
         let f = &i.formulas[0];
         let result: f64 = i.eval(f).unwrap().into();

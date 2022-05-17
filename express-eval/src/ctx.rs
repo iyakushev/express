@@ -3,7 +3,7 @@ use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function, Type},
 };
-use std::{collections::BTreeMap, rc::Rc};
+use std::collections::BTreeMap;
 
 type Namespace<T> = BTreeMap<String, T>;
 
@@ -25,8 +25,8 @@ impl Context {
     }
 
     /// Registers given function in the interpreter context
-    pub fn register_function(&mut self, name: &str, exp_fn: Rc<dyn Callable + Send + Sync>) {
-        self.ns_fn.insert(name.to_string(), Function(exp_fn));
+    pub fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable + Send + Sync>) {
+        self.ns_fn.insert(name.to_string(), Function(exp_fn.into()));
     }
 
     /// Registers given named constant in the interpreter context
@@ -159,6 +159,7 @@ mod test {
     use express::lang::ast::Operation;
     use express::lang::parser::parse_expression;
     use express::xmacro::runtime_callable;
+    use std::rc::Rc;
 
     #[runtime_callable]
     fn add_answer(val: f64) -> Option<f64> {
@@ -189,7 +190,7 @@ mod test {
         ($expr: expr; $($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
             {
                 let (_, expression) = parse_expression($expr).unwrap();
-                println!("\nEXPR: {}\n{:?}", $expr, expression);
+                // println!("\nEXPR: {}\n{:?}", $expr, expression);
                 let mut ctx = Context::new();
                 $( ctx.register_constant($cnst, $cval); )*
                 $( ctx.register_function($fns, $fval); )*
@@ -240,7 +241,7 @@ mod test {
     #[test]
     pub fn test_inline_fn_expr() {
         let result =
-            test_expr!("-add_answer(1)"; "Foo" => 1.0; "add_answer" => Rc::new(__add_answer));
+            test_expr!("-add_answer(1)"; "Foo" => 1.0; "add_answer" => Box::new(__add_answer));
         assert_eq!(
             result,
             IRNode::UnOp(
@@ -255,7 +256,7 @@ mod test {
 
     #[test]
     pub fn test_inline_const_fn_expr() {
-        let result = test_expr!("-add_answer(1) * PI + 2"; "PI" => 3.14; "add_answer" => Rc::new(__add_answer));
+        let result = test_expr!("-add_answer(1) * PI + 2"; "PI" => 3.14; "add_answer" => Box::new(__add_answer));
         assert_eq!(
             result,
             IRNode::BinOp(
@@ -278,13 +279,13 @@ mod test {
 
     #[test]
     pub fn test_pure_function_optimization() {
-        let result = test_expr!("succ(succ(succ(1)))"; ; "succ" => Rc::new(__succ));
+        let result = test_expr!("succ(succ(succ(1)))"; ; "succ" => Box::new(__succ));
         assert_eq!(result, IRNode::Value(Type::Number(4.0)));
     }
 
     #[test]
     pub fn test_pure_complex_optimization() {
-        let result = test_expr!("add_answer(succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Rc::new(__succ), "add_answer" => Rc::new(__add_answer));
+        let result = test_expr!("add_answer(succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Box::new(__succ), "add_answer" => Box::new(__add_answer));
         assert_eq!(
             result,
             IRNode::Function(
@@ -296,7 +297,7 @@ mod test {
 
     #[test]
     pub fn test_all_pure_optimization() {
-        let result = test_expr!("add(4, succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Rc::new(__succ), "add" => Rc::new(__add));
+        let result = test_expr!("add(4, succ(succ(succ(1)))**TWO)"; "TWO" => 2.0; "succ" => Box::new(__succ), "add" => Box::new(__add));
         assert_eq!(result, IRNode::Value(20.0.into()));
     }
 
@@ -304,7 +305,7 @@ mod test {
     pub fn test_all_str_optimization() {
         let result = test_expr!(
             "repeat(take_str(blah), succ(succ(succ(2))))";;
-            "take_str" => Rc::new(__take_str), "repeat" => Rc::new(__repeat), "succ" => Rc::new(__succ));
+            "take_str" => Box::new(__take_str), "repeat" => Box::new(__repeat), "succ" => Box::new(__succ));
         assert_eq!(
             result,
             IRNode::Value(String::from("New blah New blah New blah New blah New blah ").into())

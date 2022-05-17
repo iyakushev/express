@@ -57,6 +57,10 @@ impl Callable for Function {
 /// ## Why?
 /// Because rust calling conventions (Fn traits) are still unstable.
 /// Here is a [tracking issue](https://doc.rust-lang.org/stable/std/ops/trait.Fn.html#required-methods)
+/// ## Safety
+/// Calling `call` method directly on #[runtime_callable] objects is unsafe
+/// since they access arguments with `get_unchecked(pos)`.
+/// The arg count check is performed during AST creation.
 pub trait Callable {
     fn call(&self, args: &[Type]) -> Option<Type>;
 

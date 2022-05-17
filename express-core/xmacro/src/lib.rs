@@ -1,6 +1,8 @@
+mod uselib;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{spanned::Spanned, FnArg, Pat, ReturnType};
+use syn::{parse_macro_input, parse_quote, spanned::Spanned, FnArg, Pat, ReturnType};
+use uselib::Library;
 
 fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
     match syn::parse::<syn::Ident>(attr) {
@@ -153,12 +155,14 @@ pub fn resolve_name(item: TokenStream) -> TokenStream {
 ///     use_library! {
 ///         context ctx;
 ///         library some_xpr_lib::subcrate;
-///         constatns:
+///         constatns {
 ///             path::const::math::FOO;
 ///             path::const::lib::BAR;
-///         functions:
+///         }
+///         functions {
 ///             other::path::book;
 ///             other::path::math::sin;
+///         }
 ///     };
 ///     // ...other library regestration...
 ///     let intrp = Interpreter::new(ctx);
@@ -168,5 +172,43 @@ pub fn resolve_name(item: TokenStream) -> TokenStream {
 /// For example, the resulting path of constant `FOO` is `some_xpr_lib::subcrate::path::const::math::FOO`.
 #[proc_macro]
 pub fn use_library(item: TokenStream) -> TokenStream {
-    item
+    // let parsed = parse_macro_input!();
+    let lib = parse_macro_input!(item as Library);
+    let ctx = lib.ctx;
+    let root = lib.root;
+    let reg_constant: Vec<_> = lib
+        .constants
+        .values
+        .into_iter()
+        .map(|(name, path, target)| {
+            // quote! { #ctx.register_constant(#name, #root #(::#path)?::#target); }
+            if !path.path.segments.is_empty() {
+                let mut full_path = root.clone();
+                full_path.path.segments.extend(path.path.segments);
+                quote! { #ctx.register_constant(#name, #full_path::#target); }
+            } else {
+                quote! { #ctx.register_constant(#name, #root::#target); }
+            }
+        })
+        .collect();
+    let reg_function: Vec<_> = lib
+        .functions
+        .values
+        .into_iter()
+        .map(|(name, path, target)| {
+            let trgt = format_ident!("__{}", target);
+            if !path.path.segments.is_empty() {
+                let mut full_path = root.clone();
+                full_path.path.segments.extend(path.path.segments);
+                quote! { #ctx.register_function(#name, Box::new(#full_path::#trgt)); }
+            } else {
+                quote! { #ctx.register_function(#name, Box::new(#root::#trgt)); }
+            }
+        })
+        .collect();
+    quote! {
+        #(#reg_constant);*
+        #(#reg_function);*
+    }
+    .into()
 }

@@ -3,91 +3,11 @@ pub mod formula;
 pub mod interp;
 pub mod ir;
 
-use express::xmacro::resolve_name;
-/// Registers functions and constants in the given interpreter context;
-/// Macro uses a custom syntax to expose constants and functions.
-/// ## Syntax
-/// Macro consists of 4 sections in total with __constants__ and __functions__
-/// being mutualy optional.
-/// (they can be used both at once, only one of them but never without any of them)
-/// : __context__ -- is a section where user passes a __Context__ object.
-/// : __library__ -- this declares a common library root which is used in later sections.
-/// : __constants__ -- registers constants.
-/// : __functions__ -- registers functions.
-///
-/// ```ignore
-/// use some_xpr_lib;
-///
-/// fn setup_interpreter() {
-///     let mut ctx = Context::new();
-///     // ...some other code...
-///     use_library! {
-///         context ctx;
-///         library some_xpr_lib::subcrate;
-///         constatns:
-///             path::const::math::FOO;
-///             path::const::lib::BAR;
-///         functions:
-///             other::path::book;
-///             other::path::math::sin;
-///     };
-///     // ...other library regestration...
-///     let intrp = Interpreter::new(ctx);
-///     // ...
-/// }
-/// ```
-/// For example, the resulting path of constant `FOO` is `some_xpr_lib::subcrate::path::const::math::FOO`.
-#[macro_export]
-macro_rules! use_library {
-    (context $ctx: expr;
-     library $lib_root: ident;
-     constants {$( $cname: ident $(::$cinner: ident)* );* ;}
-     functions {$( $fname: ident $(::$finner: ident)* );* ;}) => {{
-
-        // Asserts that the type of the $ctx expression is ctx::Context
-        let mut _ctx: ctx::Context = $ctx;
-        use_library!(context _ctx; library $lib_root; constants {$( $cname$($cinner)* );* ;});
-        use_library!(context _ctx; library $lib_root; functions {$( $fname$($finner)* );* ;});
-    }};
-
-    (context $ctx: expr;
-     library $lib_root: ident;
-     constants {$( $cname: ident $(::$cinner: ident)* );* ;}) => {{
-        $(
-            let _: ctx::Context = $ctx;
-            let value = $lib_root::$cname$(::$cinner)*;
-            let mut name = stringify!($(::$cinner)*).split("::").last().unwrap().to_string();
-            remove_whitespace(&mut name);
-            $ctx.register_constant(name.as_str(), value);
-        )*
-    }};
-
-    (context $ctx: expr;
-     library $lib_root: ident;
-     functions {$( $fname: ident $(::$finner: ident)* );* ;}) => {{
-        $(
-            let _: ctx::Context = $ctx;
-            let name = stringify!($(::$finner)*).split("::").last().unwrap().to_string();
-            let value = resolve_name!($lib_root::$fname$(::$finner)*);
-            let mut name = stringify!($(::$finner)*).split("::").last().unwrap().to_string();
-            remove_whitespace(&mut name);
-            $ctx.register_function(name.as_str(), value)
-        )*
-    }};
-}
-
-#[allow(dead_code)]
-fn remove_whitespace(s: &mut String) {
-    s.retain(|c| !c.is_whitespace());
-}
-
 #[cfg(test)]
 mod test {
     use crate::ctx::Context;
-
-    use super::*;
     use express::types::{Callable, Type};
-    use express::xmacro::runtime_callable;
+    use express::xmacro::{runtime_callable, use_library};
     use express_std;
 
     #[runtime_callable]
@@ -100,15 +20,31 @@ mod test {
         let mut ctx = Context::new();
         use_library! {
             context ctx;
-            library express_std;
+            library express_std::math;
             constants {
-                math::PI;
-                math::EPS;
+                PI;
+                EPS;
+            }
+            functions {
+                log;
+                ln;
             }
         };
+
         assert!(!ctx.ns_const.is_empty());
-        assert_eq!(*ctx.ns_const.get("PI").unwrap(), express_std::math::PI);
-        assert_eq!(*ctx.ns_const.get("EPS").unwrap(), express_std::math::EPS);
+        assert_eq!(ctx.find_constant("PI").unwrap(), express_std::math::PI);
+        assert_eq!(ctx.find_constant("EPS").unwrap(), express_std::math::EPS);
+
+        assert!(!ctx.ns_fn.is_empty());
+        assert_eq!(
+            f64::from(
+                ctx.find_function("ln")
+                    .unwrap()
+                    .call(&[Type::Number(2.0)])
+                    .unwrap()
+            ),
+            express_std::math::ln(2.0).unwrap()
+        )
     }
 
     //#[test]
