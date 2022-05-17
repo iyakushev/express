@@ -1,7 +1,7 @@
 mod uselib;
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
-use syn::{parse_macro_input, parse_quote, spanned::Spanned, FnArg, Pat, ReturnType};
+use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
 use uselib::Library;
 
 fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
