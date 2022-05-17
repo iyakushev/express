@@ -18,29 +18,37 @@ pub struct Interpreter {
     pub formulas: Vec<Formula>,
 }
 
+/// Loads functions and constants
+/// from the standart library
+fn load_prelude(ctx: &mut Context) {
+    use_library! {
+        context ctx;
+        library express_std;
+        constants {
+            math::PI;
+            math::EPS;
+            math::TAU;
+            math::LN2;
+        }
+
+        functions {
+            math::log;
+            math::ln;
+            timeseries::ema;
+            timeseries::ma;
+            timeseries::malin;
+            timeseries::twa;
+        }
+    }
+}
+
 impl Interpreter {
     /// Creates a new interpreter context from
     pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
         let mut fs = Vec::with_capacity(formulas.len());
+        load_prelude(&mut context);
         for (name, exp) in formulas {
             fs.push(Formula::new(name, exp, &context)?);
-        }
-
-        use_library! {
-            context context;
-            library express_std;
-            constants {
-                math::PI;
-                math::EPS;
-                math::TAU;
-                math::LN2;
-            }
-
-            functions {
-                math::log;
-                math::ln;
-                timeseries::ema;
-            }
         }
 
         Ok(Self {
@@ -150,5 +158,13 @@ mod test {
         let f = &i.formulas[0];
         let result: f64 = i.eval(f).unwrap().into();
         assert_eq!(result, 14.0);
+    }
+
+    #[test]
+    pub fn expr_with_std_call() {
+        let intrp = Interpreter::new(&[("foo", "2+2*2+log(2,4)")], Context::new()).unwrap();
+        let f = &intrp.formulas[0];
+        let result: i64 = intrp.eval(f).unwrap().into();
+        assert_eq!(result, 8);
     }
 }
