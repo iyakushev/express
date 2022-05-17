@@ -31,7 +31,7 @@ Optionally it accepts attribute `pure` which denotes given function as... well..
 #[inline]
 #[runtime_callable(pure)]
 fn add_answer(lhs: f64) -> Option<f64> {
-    lhs + 42.0
+    Some(lhs + 42.0)
 }
 // ... other code ...
 
