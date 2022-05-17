@@ -1,12 +1,12 @@
 pub use express::types::TimeStep;
-use slice_deque::SliceDeque;
+use std::sync::Arc;
 
 /**
 It accumulates ticks over time into the inner ring buffer
 and computes specified functions on it.
 */
 #[allow(dead_code)]
-pub type TimeSeries = SliceDeque<TimeStep>;
+pub type TimeSeries = Arc<[TimeStep]>;
 
 /**
 Fills time series with values just like `vec![...]`.
@@ -17,22 +17,20 @@ Fills time series with values just like `vec![...]`.
 #[macro_export]
 macro_rules! fill_ts {
 
-    [$($val:expr); +$(,)?] => {
-        {
-            let mut stack = TimeSeries::with_capacity(10);
-            $(stack.push_back(TimeStep{ price: $val, time: $val });)*
-            stack
-        }
-    };
-    [$($val:expr, $t:expr);+$(,)?] => {
-        {
-            let mut stack = TimeSeries::with_capacity(10);
-            $(stack.push_back(TimeStep{ price: $val, time: $t });)*
-            stack
-        }
-    }
+    [$($val:expr); +$(,)?] => {{
+        [$(TimeStep{ price: $val, time: $val },)*]
+    }};
+    [$($val:expr, $t:expr);+$(,)?] => {{
+        [$(TimeStep{ price: $val, time: $t }),*]
+    }}
 }
+
 mod ema;
 mod ma;
 mod malin;
 mod twa;
+
+pub use ema::*;
+pub use ma::*;
+pub use malin::*;
+pub use twa::*;

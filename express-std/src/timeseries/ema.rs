@@ -1,5 +1,9 @@
-use express::types::TimeStep;
+use express::{
+    types::{Callable, Type},
+    xmacro::runtime_callable,
+};
 
+use super::TimeSeries;
 /**
 Computes exponential moving average over arbitrary slice
 : price, time -- represent each corresponding axes of market data. They must have matching size.
@@ -11,7 +15,8 @@ Computes exponential moving average over arbitrary slice
  */
 #[allow(dead_code)]
 #[inline]
-pub fn ema(ts_buffer: &[TimeStep], lookback: f64) -> Option<f64> {
+#[runtime_callable(pure)]
+pub fn ema(ts_buffer: TimeSeries, lookback: f64) -> Option<f64> {
     let mut prev_tick = ts_buffer.last()?;
     if lookback > (prev_tick.time - ts_buffer.first()?.time) {
         return None;
@@ -25,7 +30,7 @@ pub fn ema(ts_buffer: &[TimeStep], lookback: f64) -> Option<f64> {
     prev_tick = it_buffer.next()?;
     for tick in it_buffer {
         if dtsum > lookback {
-            return Some(value / expsum);
+            break;
         }
         dtsum += dt;
         let exp = (-2.0f64.ln() * dtsum / lookback).exp();
@@ -40,28 +45,28 @@ pub fn ema(ts_buffer: &[TimeStep], lookback: f64) -> Option<f64> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::{fill_ts, timeseries::TimeSeries, timeseries::TimeStep};
+    use crate::{fill_ts, timeseries::TimeStep};
     use float_cmp::assert_approx_eq;
-    use std::ops::Deref;
+    use std::sync::Arc;
 
     #[test]
     pub fn test_smaller_slices() {
-        let stack: TimeSeries = fill_ts![2.0; 3.0];
+        let stack: [TimeStep; 2] = fill_ts![2.0; 3.0];
         let window = 15.0;
-        assert_eq!(ema(stack.deref(), window), None)
+        assert_eq!(ema(Arc::new(stack), window), None)
     }
     #[test]
     pub fn test_full_vec_pass() {
-        let stack: TimeSeries = fill_ts![2.0, 0.0; 5.0, 1.0; 1.0, 3.0; 2.0, 4.0];
+        let stack: [TimeStep; 4] = fill_ts![2.0, 0.0; 5.0, 1.0; 1.0, 3.0; 2.0, 4.0];
         let window = 3.0;
-        let result = ema(stack.deref(), window).unwrap();
+        let result = ema(Arc::new(stack), window).unwrap();
         assert_approx_eq!(f64, 2.3078, result, epsilon = 0.001);
     }
 
     #[test]
     pub fn test_range_inclusivity() {
         // NOTE(iy): 3 seconds must be passed for computation
-        let stack: TimeSeries = fill_ts![
+        let stack = fill_ts![
             2.0, 0.0;
             2.7, 1.0;
             3.0, 1.3;
@@ -77,7 +82,7 @@ mod test {
             5.1, 3.2;
             4.9, 3.3];
         let window = 3.0;
-        let result = ema(&stack.deref(), window).unwrap();
+        let result = ema(Arc::new(stack), window).unwrap();
         // actualy producess 4.22827783
         assert_approx_eq!(f64, result, 4.2282, epsilon = 0.001);
         // assert_approx_eq!(f64, result, 4.125628, epsilon = 0.001);

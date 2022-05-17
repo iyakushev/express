@@ -10,7 +10,6 @@ authors = ["iy <iamero7@gmail.com>"]
 crate-type = ["lib"]
 
 [dependencies]
-slice-deque = "0.3.0"
 express = {path="../express-core"}
 
 [dev-dependencies]
