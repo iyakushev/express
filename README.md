@@ -36,7 +36,6 @@ fn add_answer(lhs: f64) -> Option<f64> {
 // ... other code ...
 
 
-
 // some::crate::consts.rs
 const NICE: i64 = 69;
 // ... other code ...
