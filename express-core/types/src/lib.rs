@@ -62,6 +62,12 @@ pub trait Callable {
     fn is_pure(&self) -> bool {
         false
     }
+
+    /// Tells Optimizer that this object must be created
+    /// before inlining it into AST
+    fn should_be_created(&self) -> bool {
+        false
+    }
 }
 
 /// Automatically implements bijection conversion traits

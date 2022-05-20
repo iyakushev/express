@@ -35,6 +35,7 @@ fn load_prelude(ctx: &mut Context) {
             math::log;
             math::ln;
             timeseries::ema;
+            timeseries::jma;
             timeseries::ma;
             timeseries::malin;
             timeseries::twa;

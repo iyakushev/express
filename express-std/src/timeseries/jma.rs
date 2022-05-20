@@ -21,7 +21,7 @@ fn get_pahse_ratio(phase: f64) -> f64 {
 }
 
 #[inline(always)]
-fn get_price_volatility(uband: f64, lband: f64, price: f64) -> f64 {
+fn _get_price_volatility(uband: f64, lband: f64, price: f64) -> f64 {
     let d1 = price - uband;
     let d2 = price - lband;
     if d1 != d2 {

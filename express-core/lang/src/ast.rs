@@ -1,10 +1,10 @@
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Literal {
     Ident(String),
     Number(f64),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]
 pub enum Operation {
     Plus,
     Minus,
@@ -37,7 +37,7 @@ impl Operation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Expression {
     Const(Literal),
     Function {

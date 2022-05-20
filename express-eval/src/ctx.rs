@@ -25,6 +25,7 @@ pub trait InterpreterContext {
 pub struct Context {
     pub ns_fn: Namespace<Function>,
     pub ns_const: Namespace<f64>,
+    pub tmp_obj_lookup: BTreeMap<(String, Vec<Expression>), Function>,
 }
 
 impl Context {
@@ -33,6 +34,7 @@ impl Context {
         Self {
             ns_fn: Namespace::new(),
             ns_const: Namespace::new(),
+            tmp_obj_lookup: BTreeMap::new(),
         }
     }
 }
@@ -54,6 +56,32 @@ impl InterpreterContext for Context {
 
     fn find_constant(&self, name: &str) -> Option<f64> {
         Some(*self.ns_const.get(name)?)
+    }
+}
+
+/// Initializes object
+// fn init_object(f: Rc<dyn Callable>, args: &[Type]) {
+//     if f.should_be_created() {
+//         f.init(args)
+//     }
+// }
+
+/// Simplifies ast and produces new IRNode
+fn reduce_ast_node(f: Rc<dyn Callable>, arguments: Vec<IRNode>) -> Result<IRNode, String> {
+    if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {
+        return Ok(IRNode::Function(f.clone(), arguments));
+    } else {
+        let values: Box<[Type]> = arguments
+            .into_iter()
+            .map(|arg| match arg {
+                IRNode::Value(t) => t,
+                _ => unreachable!(),
+            })
+            .collect();
+        if let Some(result) = f.call(&*values) {
+            return Ok(IRNode::Value(result));
+        }
+        return Err(format!("Pure function with const arguments returned None"));
     }
 }
 
@@ -89,6 +117,7 @@ impl Visit<Expression> for Context {
         {
             // simplimies function arguments
             let mut arguments = Vec::with_capacity(args.len());
+            // let object_key = (name, args.clone());
             for arg in args {
                 arguments.push(self.visit_expr(arg)?);
             }
@@ -101,23 +130,12 @@ impl Visit<Expression> for Context {
                         f.argcnt()
                     ));
                 }
+                // self.tmp_obj_lookup.insert(object_key, *f);
+                // init_object(*f, args.as_slice());
+
                 // Try to simplify fn call
                 if f.is_pure() {
-                    if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {
-                        return Ok(IRNode::Function(f.clone(), arguments));
-                    } else {
-                        let values: Box<[Type]> = arguments
-                            .into_iter()
-                            .map(|arg| match arg {
-                                IRNode::Value(t) => t,
-                                _ => unreachable!(),
-                            })
-                            .collect();
-                        if let Some(result) = f.call(&*values) {
-                            return Ok(IRNode::Value(result));
-                        }
-                        return Err(format!("Pure function with const arguments returned None"));
-                    }
+                    return reduce_ast_node(f.clone(), arguments);
                 } else {
                     return Ok(IRNode::Function(f.clone(), arguments));
                 }
