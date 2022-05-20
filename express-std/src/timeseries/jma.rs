@@ -39,10 +39,10 @@ const JMA_BANDPERIOD: usize = 65;
 fn jma(ts: TimeSeries, len: usize, phase: f64) -> Option<f64> {
     // setup jma variables
     // Boooooooy it is gonna be slow to compute...
-    if ts.is_empty() {
+    if ts.is_empty() || len > ts.len() {
         return None;
     }
-    ezinit!(kv, det0, det1, ma2; 0.0);
+    ezinit!(det0, det1; 0.0);
     ezinit!(upper_band, lower_band, ma1, jma; ts[0].price);
     let length = 0.5 * (len - 1) as f64;
     let length1 = ((length.sqrt().ln() / 2.0f64.ln()) + 2.0).max(0.0);
@@ -79,7 +79,7 @@ fn jma(ts: TimeSeries, len: usize, phase: f64) -> Option<f64> {
 
         // Update Jurik volatility bands
         let pow2 = r_volty.powf(pow1);
-        kv = bet.powf(pow2.sqrt());
+        let kv = bet.powf(pow2.sqrt());
         upper_band = if del1 > 0.0 {
             price
         } else {
@@ -100,7 +100,7 @@ fn jma(ts: TimeSeries, len: usize, phase: f64) -> Option<f64> {
 
         // 2nd stage. Kalman
         det0 = ((price - ma1) * (1.0 - beta)) + (beta * det0);
-        ma2 = ma1 + phase_ratio * det0;
+        let ma2 = ma1 + phase_ratio * det0;
 
         // 3rd stage - final smoothing by unique Jurik adaptive filter
         det1 = ((ma2 - jma) * (1.0 - alpha).powf(2.0)) + (alpha.powf(2.0) * det1);
