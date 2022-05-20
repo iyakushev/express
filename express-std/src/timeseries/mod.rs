@@ -27,12 +27,14 @@ macro_rules! fill_ts {
 
 mod ema;
 mod jma;
+mod jma_opt;
 mod ma;
 mod malin;
 mod twa;
 
 pub use ema::*;
 pub use jma::*;
+pub use jma_opt::*;
 pub use ma::*;
 pub use malin::*;
 pub use twa::*;

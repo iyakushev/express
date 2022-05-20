@@ -112,6 +112,8 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
                 Some({ #( #stmts )* }?.into())
             }
 
+            fn init(&mut self, args: &[Type]) {}
+
             fn argcnt(&self) -> usize {
                 #argcnt
             }

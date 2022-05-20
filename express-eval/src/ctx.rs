@@ -3,14 +3,14 @@ use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function, Type},
 };
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, rc::Rc};
 
 type Namespace<T> = BTreeMap<String, T>;
 
 /// A public interface for any Interpreter Context
 pub trait InterpreterContext {
     /// Registers given function in the interpreter context
-    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable + Send + Sync>);
+    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable>);
 
     /// Registers given named constant in the interpreter context
     fn register_constant(&mut self, name: &str, exp_const: f64);
@@ -22,7 +22,6 @@ pub trait InterpreterContext {
 
 /// Holds evaluation context information such as functions
 /// that implement `Callable` trait and named constants.
-#[derive(Debug)]
 pub struct Context {
     pub ns_fn: Namespace<Function>,
     pub ns_const: Namespace<f64>,
@@ -40,8 +39,8 @@ impl Context {
 
 impl InterpreterContext for Context {
     /// Registers given function in the interpreter context
-    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable + Send + Sync>) {
-        self.ns_fn.insert(name.to_string(), Function(exp_fn.into()));
+    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable>) {
+        self.ns_fn.insert(name.to_string(), Rc::from(exp_fn));
     }
 
     /// Registers given named constant in the interpreter context
@@ -105,7 +104,7 @@ impl Visit<Expression> for Context {
                 // Try to simplify fn call
                 if f.is_pure() {
                     if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {
-                        return Ok(IRNode::Function(f.0.clone(), arguments));
+                        return Ok(IRNode::Function(f.clone(), arguments));
                     } else {
                         let values: Box<[Type]> = arguments
                             .into_iter()
@@ -120,7 +119,7 @@ impl Visit<Expression> for Context {
                         return Err(format!("Pure function with const arguments returned None"));
                     }
                 } else {
-                    return Ok(IRNode::Function(f.0.clone(), arguments));
+                    return Ok(IRNode::Function(f.clone(), arguments));
                 }
             }
             return Err(format!("Failed to find function with a name {}", name));

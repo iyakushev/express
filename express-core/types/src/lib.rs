@@ -10,9 +10,9 @@ use std::{fmt::Debug, rc::Rc, sync::Arc};
 pub enum Type {
     Number(f64),
     String(String),
-    // Function(Function),
     Collection(Arc<[TimeStep]>),
     TimeStep(TimeStep),
+    // Function(Function),
 }
 
 /// A wrapping structure around `(f64, f64)` that represents
@@ -29,28 +29,13 @@ pub struct TimeStep {
 /// not contain any side effects. This is guranteed by the
 /// `Callable` trait contract whitch takes only immutable
 /// reference to self.
-#[derive(Clone)]
-pub struct Function(pub Rc<dyn Callable + Send + Sync>);
+pub type Function = Rc<dyn Callable>;
 
-impl Debug for Function {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Function")
-    }
-}
-
-impl Callable for Function {
-    fn call(&self, args: &[Type]) -> Option<Type> {
-        self.0.call(args)
-    }
-
-    fn argcnt(&self) -> usize {
-        self.0.argcnt()
-    }
-
-    fn is_pure(&self) -> bool {
-        self.0.is_pure()
-    }
-}
+// impl Debug for Function {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "Function")
+//     }
+// }
 
 /// This is a public Callable trait which lets
 /// any function be runable inside.
@@ -62,6 +47,11 @@ impl Callable for Function {
 /// since they access arguments with `get_unchecked(pos)`.
 /// The arg count check is performed during AST creation.
 pub trait Callable {
+    /// Execuded once before the main loop with call
+    /// Allows struct to initialize its internal state.
+    fn init(&mut self, args: &[Type]);
+
+    // fn init(args: &[Type]) -> Self;
     fn call(&self, args: &[Type]) -> Option<Type>;
 
     fn argcnt(&self) -> usize;
