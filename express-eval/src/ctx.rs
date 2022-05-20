@@ -7,6 +7,19 @@ use std::collections::BTreeMap;
 
 type Namespace<T> = BTreeMap<String, T>;
 
+/// A public interface for any Interpreter Context
+pub trait InterpreterContext {
+    /// Registers given function in the interpreter context
+    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable + Send + Sync>);
+
+    /// Registers given named constant in the interpreter context
+    fn register_constant(&mut self, name: &str, exp_const: f64);
+
+    fn find_function(&self, name: &str) -> Option<&Function>;
+
+    fn find_constant(&self, name: &str) -> Option<f64>;
+}
+
 /// Holds evaluation context information such as functions
 /// that implement `Callable` trait and named constants.
 #[derive(Debug)]
@@ -23,25 +36,32 @@ impl Context {
             ns_const: Namespace::new(),
         }
     }
+}
 
+impl InterpreterContext for Context {
     /// Registers given function in the interpreter context
-    pub fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable + Send + Sync>) {
+    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable + Send + Sync>) {
         self.ns_fn.insert(name.to_string(), Function(exp_fn.into()));
     }
 
     /// Registers given named constant in the interpreter context
-    pub fn register_constant(&mut self, name: &str, exp_const: f64) {
+    fn register_constant(&mut self, name: &str, exp_const: f64) {
         self.ns_const.insert(name.to_string(), exp_const);
     }
 
-    pub fn find_function(&self, name: &str) -> Option<&Function> {
+    fn find_function(&self, name: &str) -> Option<&Function> {
         self.ns_fn.get(name)
     }
 
-    pub fn find_constant(&self, name: &str) -> Option<f64> {
+    fn find_constant(&self, name: &str) -> Option<f64> {
         Some(*self.ns_const.get(name)?)
     }
 }
+
+/// Introducing dyn InterpreterContext will degrade performance
+/// by inderection (vtable). While This visit is not important
+/// later evaluation will suffer a perf hit since they would do
+/// fn lookups through a vtable call.
 
 impl Visit<Expression> for Context {
     type Returns = Result<IRNode, String>;

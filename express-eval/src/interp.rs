@@ -1,4 +1,4 @@
-use crate::ctx::Context;
+use crate::ctx::{Context, InterpreterContext};
 use crate::formula::Formula;
 use crate::ir::IRNode;
 use express::lang::ast::Visit;
@@ -132,6 +132,7 @@ impl Visit<&IRNode> for Interpreter {
 mod test {
 
     use super::*;
+    use crate::ctx::InterpreterContext;
     use express::types::{Callable, Type};
     use express::xmacro::{resolve_name, runtime_callable};
 
