@@ -2,6 +2,7 @@
 use crate::ast::*;
 use nom::bytes::complete::{tag, take_while1};
 use nom::character::is_alphanumeric;
+use nom::combinator::{map_res, peek};
 use nom::{
     branch::alt,
     character::complete::{char, multispace0},
@@ -33,12 +34,21 @@ fn parse_ident(input: &str) -> IResult<&str, Literal> {
     })(input)
 }
 
-fn parse_literal(input: &str) -> IResult<&str, Literal> {
-    alt((parse_number, parse_ident))(input)
+/// Parses reference ident like: __&some_name__
+fn parse_reference(input: &str) -> IResult<&str, Literal> {
+    map(
+        preceded(char('&'), take_while1(_is_valid_ident)),
+        |ident: &str| Literal::Ref(ident.to_string()),
+    )(input)
 }
 
-/// Operand can be a literal: __12__, __12.23__, __PI__
-/// or it can be a function: __ema(...)__
+fn parse_literal(input: &str) -> IResult<&str, Literal> {
+    alt((parse_number, parse_ident, parse_reference))(input)
+}
+
+/// Operand can be a literal: __12__, __12.23__, __PI__.
+/// or it can be a reference: &Foo, &bar.
+/// or it can be a function: __ema(...)__.
 fn parse_operand(input: &str) -> IResult<&str, Expression> {
     let (input, lit) = parse_literal(input)?;
     if matches!(lit, Literal::Ident(_)) && input.chars().peekable().peek() == Some(&'(') {
@@ -308,6 +318,33 @@ mod tests {
                                                     Operation::Minus)
                                                 ),
                                                 Operation::Plus)
+        );
+    }
+
+    #[test]
+    fn test_ref() {
+        test_op!(
+            parse_expression,
+            "&foo" => Expression::Const(Literal::Ref("foo".to_string()))
+        );
+
+        test_op!(
+            parse_expression,
+            "&foo * 2" => Expression::BinOp(
+                Box::new(Expression::Const(Literal::Ref("foo".to_string()))),
+                Box::new(Expression::Const(Literal::Number(2.0))),
+                Operation::Times)
+        );
+
+        test_op!(
+            parse_expression,
+            "&foo + ema(&book)" => Expression::BinOp(
+                Box::new(Expression::Const(Literal::Ref("foo".to_string()))),
+                Box::new(Expression::Function {
+                    name: Literal::Ident("ema".to_string()),
+                    args: vec![Expression::Const(Literal::Ref("book".to_string()))]
+                }),
+                Operation::Plus)
         );
     }
 

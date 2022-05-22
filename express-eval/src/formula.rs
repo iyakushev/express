@@ -1,10 +1,14 @@
+use std::sync::Arc;
+
 use crate::{ctx::Context, ir::IRNode};
 use express::lang::{ast::Visit, parser::parse_expression};
 use express::types::Type;
 
+type Link = Option<Arc<Formula>>;
+
 pub struct Formula {
-    _name: String,
     pub ast: IRNode,
+    pub next: Link,
     pub result: Option<Type>,
 }
 
@@ -17,18 +21,13 @@ impl Iterator for Formula {
 }
 
 impl Formula {
-    pub fn new(name: &str, expression: &str, eval_ctx: &Context) -> Result<Self, String> {
+    pub fn new(expression: &str, eval_ctx: &Context) -> Result<Self, String> {
         let (_, ast) = match parse_expression(expression) {
             Ok(it) => it,
-            Err(err) => {
-                return Err(format!(
-                    "Failed to parse expression '{}'. Reason: {}",
-                    name, err
-                ))
-            }
+            Err(err) => return Err(format!("Failed to parse expression. Reason: {}", err)),
         };
         Ok(Self {
-            _name: name.to_string(),
+            next: None,
             ast: eval_ctx.visit_expr(ast)?,
             result: None,
         })

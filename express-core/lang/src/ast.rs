@@ -2,6 +2,7 @@
 pub enum Literal {
     Ident(String),
     Number(f64),
+    Ref(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd, Eq)]

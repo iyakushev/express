@@ -1,4 +1,5 @@
 pub mod ctx;
+pub mod dag;
 pub mod formula;
 pub mod interp;
 pub mod ir;

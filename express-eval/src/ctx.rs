@@ -3,7 +3,7 @@ use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function, Type},
 };
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap, rc::Rc, sync::Arc};
 
 type Namespace<T> = BTreeMap<String, T>;
 
@@ -103,6 +103,9 @@ impl Visit<Expression> for Context {
                     } else {
                         return Ok(IRNode::Value(Type::String(id)));
                     }
+                }
+                Literal::Ref(formula) => {
+                    return Ok(IRNode::Ref(Box::new(IRNode::Value(Type::String(formula)))));
                 }
             };
         };

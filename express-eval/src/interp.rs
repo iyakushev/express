@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::ctx::{Context, InterpreterContext};
 use crate::formula::Formula;
 use crate::ir::IRNode;
@@ -15,7 +17,7 @@ type NamedExpression<'e> = (&'e str, &'e str);
 
 pub struct Interpreter {
     pub ctx: Context,
-    pub formulas: Vec<Formula>,
+    pub formulas: BTreeMap<String, Formula>,
 }
 
 /// Loads functions and constants
@@ -46,10 +48,10 @@ fn load_prelude(ctx: &mut Context) {
 impl Interpreter {
     /// Creates a new interpreter context from
     pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
-        let mut fs = Vec::with_capacity(formulas.len());
+        let mut fs = BTreeMap::new();
         load_prelude(&mut context);
         for (name, exp) in formulas {
-            fs.push(Formula::new(name, exp, &context)?);
+            fs.insert(name.to_string(), Formula::new(exp, &context)?);
         }
 
         Ok(Self {
@@ -76,7 +78,7 @@ impl Iterator for Interpreter {
     type Item = Box<[Option<Type>]>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.formulas.iter().map(|f| self.eval(f)).collect())
+        Some(self.formulas.iter().map(|(k, v)| self.eval(v)).collect())
     }
 }
 
@@ -125,6 +127,7 @@ impl Visit<&IRNode> for Interpreter {
                 let rhs: f64 = self.visit_expr(rhs)?.into();
                 Some(Type::Number(op.unary_eval(rhs)))
             }
+            IRNode::Ref(r) => None,
         }
     }
 }
@@ -157,7 +160,7 @@ mod test {
     pub fn simple_expression() {
         let ctx = test_expr!(; "add" => Box::new(resolve_name!(add)));
         let i = Interpreter::new(&[("foo", "2 + add(12 - 2, add(1, 1))")], ctx).unwrap();
-        let f = &i.formulas[0];
+        let f = &i.formulas["foo"];
         let result: f64 = i.eval(f).unwrap().into();
         assert_eq!(result, 14.0);
     }
@@ -165,7 +168,7 @@ mod test {
     #[test]
     pub fn expr_with_std_call() {
         let intrp = Interpreter::new(&[("foo", "2+2*2+log(2,4)")], Context::new()).unwrap();
-        let f = &intrp.formulas[0];
+        let f = &intrp.formulas["foo"];
         let result: i64 = intrp.eval(f).unwrap().into();
         assert_eq!(result, 8);
     }
