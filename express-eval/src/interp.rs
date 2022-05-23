@@ -1,11 +1,10 @@
-use std::collections::BTreeMap;
-
 use crate::ctx::{Context, InterpreterContext};
 use crate::formula::Formula;
 use crate::ir::IRNode;
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
+use std::collections::BTreeMap;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -15,10 +14,22 @@ type NamedExpression<'e> = (&'e str, &'e str);
 /// node must be of type `IReturn`
 //type IReturn = f64;
 
+// NOTE(iy):
+// On Interpreter optimizations
+// | Resolve references (&name)
+// | Inline reference AST if it is reduced to IRNode::Value
+// | Find common partial AST inside each expression
+// | => promote it to a new formula
+// | => insert references to the new formula inplace
+// | Init stateful functions (?)
+
+/// Represents evaluation entry point. When supplied a new Context
+/// it gets populated with std library contents automatically.
+/// Before you instanciate the interpreter you must call `use_library!`
+/// to populate it with your custom 3rd party library code if needed.
 pub struct Interpreter {
     pub ctx: Context,
     pub active_nodes: Vec<Formula>,
-    pub formulas: BTreeMap<String, Formula>,
 }
 
 /// Loads functions and constants
@@ -49,18 +60,53 @@ fn load_prelude(ctx: &mut Context) {
 impl Interpreter {
     /// Creates a new interpreter context from
     pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
-        let mut fs = BTreeMap::new();
         load_prelude(&mut context);
-        for (name, exp) in formulas {
-            fs.insert(name.to_string(), Formula::new(exp, &context)?);
+        let mut intrp = Self {
+            ctx: context,
+            active_nodes: vec![],
+        };
+
+        intrp.build_dag(formulas)?;
+
+        Ok(intrp)
+    }
+
+    pub fn build_dag(&mut self, formulas: &[NamedExpression]) -> Result<(), String> {
+        let mut fmap: BTreeMap<&str, usize> = BTreeMap::new();
+        let mut fs = vec![];
+        for (pos, (name, exp)) in formulas.into_iter().enumerate() {
+            let formula = Formula::new(exp, &self.ctx)?;
+            fs.push(formula);
+            fmap.insert(name, pos);
         }
 
-        Ok(Self {
-            ctx: context,
-            formulas: fs,
-            active_nodes: vec![],
-        })
+        if self.active_nodes.is_empty() {
+            Err(format!("There is no formula without a dependency"))
+        } else {
+            Ok(())
+        }
+        // fn dfs() {}
     }
+
+    //fn resolve_ref(&mut self, expr: IRNode) -> IRNode {
+    //    match expr {
+    //        IRNode::Value(_) => expr,
+    //        IRNode::Function(_, mut args) => {
+    //            // args = args.into_iter().map(|arg| self.visit_ref(arg)).collect();
+    //            expr
+    //        }
+    //        IRNode::BinOp(mut lhs, mut rhs, _) => {
+    //            *lhs = self.resolve_ref(*lhs);
+    //            *rhs = self.resolve_ref(*rhs);
+    //            expr
+    //        }
+    //        IRNode::UnOp(mut rhs, _) => {
+    //            *rhs = self.resolve_ref(*rhs);
+    //            expr
+    //        }
+    //        IRNode::Ref(ref fref) => expr,
+    //    }
+    //}
 
     /// Evaluates interpreter context
     pub fn eval(&self, formula: &Formula) -> Option<Type> {
@@ -74,15 +120,15 @@ impl Interpreter {
 /// Why `Box<T>`? GATs at the moment are unstable
 /// and the only way to use them is by swithing to
 /// the nightly toolchain.
-impl Iterator for Interpreter {
-    /// GATs are unstable at the moment.
-    /// We can not write &'r Option<Type>
-    type Item = Box<[Option<Type>]>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        Some(self.formulas.iter().map(|(_, v)| self.eval(v)).collect())
-    }
-}
+// impl Iterator for Interpreter {
+//     /// GATs are unstable at the moment.
+//     /// We can not write &'r Option<Type>
+//     type Item = Box<[Option<Type>]>;
+//
+//     fn next(&mut self) -> Option<Self::Item> {
+//         Some(self.formulas.iter().map(|(_, v)| self.eval(v)).collect())
+//     }
+// }
 
 impl Visit<&IRNode> for Interpreter {
     type Returns = Option<Type>;
@@ -162,7 +208,7 @@ mod test {
     pub fn simple_expression() {
         let ctx = test_expr!(; "add" => Box::new(resolve_name!(add)));
         let i = Interpreter::new(&[("foo", "2 + add(12 - 2, add(1, 1))")], ctx).unwrap();
-        let f = &i.formulas["foo"];
+        let f = &i.active_nodes[0];
         let result: f64 = i.eval(f).unwrap().into();
         assert_eq!(result, 14.0);
     }
@@ -170,7 +216,7 @@ mod test {
     #[test]
     pub fn expr_with_std_call() {
         let intrp = Interpreter::new(&[("foo", "2+2*2+log(2,4)")], Context::new()).unwrap();
-        let f = &intrp.formulas["foo"];
+        let f = &intrp.active_nodes[0];
         let result: i64 = intrp.eval(f).unwrap().into();
         assert_eq!(result, 8);
     }
