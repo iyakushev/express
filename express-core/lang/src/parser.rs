@@ -2,7 +2,6 @@
 use crate::ast::*;
 use nom::bytes::complete::{tag, take_while1};
 use nom::character::is_alphanumeric;
-use nom::combinator::{map_res, peek};
 use nom::{
     branch::alt,
     character::complete::{char, multispace0},

@@ -1,9 +1,9 @@
-use crate::ir::IRNode;
+use crate::ir::{FormulaLink, IRNode};
 use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function, Type},
 };
-use std::{collections::BTreeMap, rc::Rc, sync::Arc};
+use std::{collections::BTreeMap, rc::Rc};
 
 type Namespace<T> = BTreeMap<String, T>;
 
@@ -105,7 +105,7 @@ impl Visit<Expression> for Context {
                     }
                 }
                 Literal::Ref(formula) => {
-                    return Ok(IRNode::Ref(Box::new(IRNode::Value(Type::String(formula)))));
+                    return Ok(IRNode::Ref(FormulaLink::new(formula.as_str())));
                 }
             };
         };
@@ -350,5 +350,20 @@ mod test {
             result,
             IRNode::Value(String::from("New blah New blah New blah New blah New blah ").into())
         );
+    }
+
+    #[test]
+    pub fn test_reference() {
+        let result = test_expr!(
+            "take_str(&foo)";;
+            "take_str" => Box::new(__take_str)
+        );
+        assert_eq!(
+            result,
+            IRNode::Function(
+                Rc::new(__take_str),
+                vec![IRNode::Ref(FormulaLink::new("foo"))]
+            )
+        )
     }
 }

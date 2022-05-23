@@ -17,6 +17,7 @@ type NamedExpression<'e> = (&'e str, &'e str);
 
 pub struct Interpreter {
     pub ctx: Context,
+    pub active_nodes: Vec<Formula>,
     pub formulas: BTreeMap<String, Formula>,
 }
 
@@ -57,6 +58,7 @@ impl Interpreter {
         Ok(Self {
             ctx: context,
             formulas: fs,
+            active_nodes: vec![],
         })
     }
 
@@ -78,7 +80,7 @@ impl Iterator for Interpreter {
     type Item = Box<[Option<Type>]>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        Some(self.formulas.iter().map(|(k, v)| self.eval(v)).collect())
+        Some(self.formulas.iter().map(|(_, v)| self.eval(v)).collect())
     }
 }
 
@@ -127,7 +129,7 @@ impl Visit<&IRNode> for Interpreter {
                 let rhs: f64 = self.visit_expr(rhs)?.into();
                 Some(Type::Number(op.unary_eval(rhs)))
             }
-            IRNode::Ref(r) => None,
+            IRNode::Ref(_) => None,
         }
     }
 }

@@ -6,9 +6,11 @@ use express::types::Type;
 
 type Link = Option<Arc<Formula>>;
 
+#[derive(PartialEq, Debug)]
 pub struct Formula {
     pub ast: IRNode,
     pub next: Link,
+    pub parents: Vec<Arc<Formula>>,
     pub result: Option<Type>,
 }
 
@@ -29,6 +31,7 @@ impl Formula {
         Ok(Self {
             next: None,
             ast: eval_ctx.visit_expr(ast)?,
+            parents: vec![],
             result: None,
         })
     }
