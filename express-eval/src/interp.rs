@@ -4,9 +4,7 @@ use crate::ir::IRNode;
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
-use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -29,10 +27,10 @@ type NamedExpression<'e> = (&'e str, &'e str);
 /// it gets populated with std library contents automatically.
 /// Before you instanciate the interpreter you must call `use_library!`
 /// to populate it with your custom 3rd party library code if needed.
-pub struct Interpreter {
+pub struct Interpreter<'i> {
     pub ctx: Context,
-    pub active_nodes: Vec<String>,
-    pub node_map: BTreeMap<String, SharedFormula>,
+    pub root_nodes: Vec<&'i str>,
+    pub node_map: BTreeMap<&'i str, SharedFormula>,
 }
 
 /// Loads functions and constants
@@ -60,21 +58,22 @@ fn load_prelude(ctx: &mut Context) {
     }
 }
 
-impl Interpreter {
+impl<'i> Interpreter<'i> {
     /// Creates a new interpreter context from
-    pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
+    pub fn new(formulas: &'i [NamedExpression], mut context: Context) -> Result<Self, String> {
+        // Load standard library
         load_prelude(&mut context);
-        let mut node_map: BTreeMap<String, SharedFormula> = BTreeMap::new();
+        let mut node_map: BTreeMap<&str, SharedFormula> = BTreeMap::new();
         let mut nodes = Vec::new();
         for (name, exp) in formulas {
             let formula = Formula::new(exp, &context)?;
             nodes.push((*name, formula.clone()));
-            node_map.insert(name.to_string(), Rc::new(RefCell::new(formula)));
+            node_map.insert(name, formula.make_shared());
         }
         let mut intrp = Self {
             ctx: context,
             node_map,
-            active_nodes: vec![],
+            root_nodes: vec![],
         };
 
         intrp.build_dag(nodes.into_iter())?;
@@ -82,16 +81,29 @@ impl Interpreter {
         Ok(intrp)
     }
 
-    pub fn build_dag<'a, It>(&mut self, nodes: It) -> Result<(), String>
+    pub fn build_dag<It>(&mut self, nodes: It) -> Result<(), String>
     where
-        It: Iterator<Item = (&'a str, Formula)>,
+        It: Iterator<Item = (&'i str, Formula)>,
     {
         for (name, f) in nodes.into_iter() {
-            let fr = self.resolve_ref(f.ast)?;
-            self.node_map.get(name).unwrap().borrow_mut().ast = fr;
+            let fresolved = self.resolve_ref(f.ast)?;
+            let fnode = self.node_map.get(name).unwrap();
+            fnode.borrow_mut().ast = fresolved;
         }
 
-        if !self.active_nodes.is_empty() {
+        self.root_nodes = self
+            .node_map
+            .iter()
+            .filter_map(|(n, f)| {
+                if !f.borrow().has_ref() {
+                    Some(*n)
+                } else {
+                    None
+                }
+            })
+            .collect();
+
+        if self.root_nodes.is_empty() {
             Err(format!("There is no formula without a dependency"))
         } else {
             Ok(())
@@ -134,6 +146,20 @@ impl Interpreter {
         self.visit_expr(&formula.borrow().ast)
     }
 
+    fn compute_subpass(&mut self, root: &str) -> Option<Type> {
+        let root = self.node_map.get(root)?;
+        // root.borrow_mut().next;
+        None
+    }
+
+    pub fn compute_pass(&mut self) -> Option<Type> {
+        let mut last_result = None;
+        for root in &self.root_nodes {
+            last_result = self.eval(root);
+        }
+        last_result
+    }
+
     pub fn eval_threaded(&self, th_num: usize) -> &[Option<Type>] {
         unimplemented!()
     }
@@ -155,7 +181,7 @@ impl Interpreter {
 //     }
 // }
 
-impl Visit<&IRNode> for Interpreter {
+impl<'i> Visit<&IRNode> for Interpreter<'i> {
     type Returns = Option<Type>;
 
     // NOTE(iy): This call is unused because visit_expr
@@ -200,7 +226,7 @@ impl Visit<&IRNode> for Interpreter {
                 let rhs: f64 = self.visit_expr(rhs)?.into();
                 Some(Type::Number(op.unary_eval(rhs)))
             }
-            IRNode::Ref(_) => None,
+            IRNode::Ref(formula) => formula.link().as_deref()?.borrow().result.clone(),
         }
     }
 }
@@ -242,5 +268,27 @@ mod test {
         let intrp = Interpreter::new(&[("foo", "2+2*2+log(2,4)")], Context::new()).unwrap();
         let result: i64 = intrp.eval("foo").unwrap().into();
         assert_eq!(result, 8);
+    }
+
+    #[test]
+    pub fn expr_with_ref_call() {
+        let mut intrp = Interpreter::new(
+            &[("foo", "2+2*2+log(2,4)"), ("bar", "&foo * 2")],
+            Context::new(),
+        )
+        .unwrap();
+        let result: i64 = intrp.eval("foo").unwrap().into();
+        assert_eq!(result, 8);
+        let result: i64 = intrp.compute_pass().unwrap().into();
+        assert_eq!(result, 16);
+    }
+
+    #[test]
+    pub fn expr_with_simple_cyclic_ref() {
+        let intrp = Interpreter::new(
+            &[("foo", "11 + &bar"), ("bar", "&foo + 11")],
+            Context::new(),
+        );
+        assert!(matches!(intrp, Err(_)));
     }
 }

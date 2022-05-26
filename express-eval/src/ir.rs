@@ -6,12 +6,12 @@ use express::{
 use std::{fmt::Debug, rc::Rc};
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct FormulaLink<Link> {
-    pub name: String,
-    link: Option<Link>,
+pub struct FormulaLink {
+    pub name: String, // TODO change to &str
+    link: Option<SharedFormula>,
 }
 
-impl<Link: Clone> FormulaLink<Link> {
+impl FormulaLink {
     pub fn new(name: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -19,12 +19,18 @@ impl<Link: Clone> FormulaLink<Link> {
         }
     }
 
-    pub fn is_resolved(&self) -> bool {
+    pub const fn link(&self) -> &Option<SharedFormula> {
+        &self.link
+    }
+
+    pub const fn is_resolved(&self) -> bool {
         self.link.is_some()
     }
 
-    pub fn link_with(&mut self, formula: Link) {
+    /// Links current formula with referant
+    pub fn link_with(&mut self, formula: SharedFormula) {
         self.link = Some(formula.clone());
+        formula.borrow_mut().inc_ref();
     }
 }
 
@@ -33,7 +39,7 @@ pub enum IRNode {
     Value(Type),
     // NOTE(iy): Pointer primitive requires changes when adopting
     // a parallel execution model (Something like RWLock?).
-    Ref(FormulaLink<SharedFormula>),
+    Ref(FormulaLink),
     Function(Rc<dyn Callable>, Vec<IRNode>),
     BinOp(Box<IRNode>, Box<IRNode>, Operation),
     UnOp(Box<IRNode>, Operation),

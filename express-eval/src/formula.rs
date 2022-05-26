@@ -9,12 +9,12 @@ use std::rc::Rc;
 /// execution.
 //pub type SharedFormula = Rc<RefCell<Formula>>;
 pub type SharedFormula = Rc<RefCell<Formula>>;
-pub type LinkFormula = Option<SharedFormula>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Formula {
     pub ast: IRNode,
-    pub next: LinkFormula,
+    has_ref: bool,
+    pub next: Vec<SharedFormula>,
     pub parents: Vec<SharedFormula>,
     pub result: Option<Type>,
 }
@@ -34,11 +34,25 @@ impl Formula {
             Err(err) => return Err(format!("Failed to parse expression. Reason: {}", err)),
         };
         Ok(Self {
-            next: None,
+            next: vec![],
+            has_ref: false,
             ast: eval_ctx.visit_expr(ast)?,
             parents: vec![],
             result: None,
         })
+    }
+
+    pub fn inc_ref(&mut self) {
+        self.has_ref = true;
+    }
+
+    pub const fn has_ref(&self) -> bool {
+        self.has_ref
+    }
+
+    /// Consumes formula and creates SharedFormula
+    pub fn make_shared(self) -> SharedFormula {
+        Rc::new(RefCell::new(self))
     }
 
     /// Evaluates formula and returns its result as __Option<Type>__
