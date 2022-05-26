@@ -1,13 +1,13 @@
-use crate::formula::{Formula, SharedFormula};
+use crate::formula::SharedFormula;
 use express::{
     lang::ast::Operation,
     types::{Callable, Type},
 };
 use std::{fmt::Debug, rc::Rc};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct FormulaLink<Link> {
-    name: String,
+    pub name: String,
     link: Option<Link>,
 }
 
@@ -28,6 +28,7 @@ impl<Link: Clone> FormulaLink<Link> {
     }
 }
 
+#[derive(Clone)]
 pub enum IRNode {
     Value(Type),
     // NOTE(iy): Pointer primitive requires changes when adopting

@@ -1,19 +1,21 @@
 use crate::{ctx::Context, ir::IRNode};
 use express::lang::{ast::Visit, parser::parse_expression};
 use express::types::Type;
+use std::cell::RefCell;
 use std::rc::Rc;
 
 /// This is a shared primitive. There might be a need of changing
 /// this into some other smart ptr which is fiendly with concurent
 /// execution.
-pub type SharedFormula = Rc<Formula>;
+//pub type SharedFormula = Rc<RefCell<Formula>>;
+pub type SharedFormula = Rc<RefCell<Formula>>;
 pub type LinkFormula = Option<SharedFormula>;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Formula {
     pub ast: IRNode,
     pub next: LinkFormula,
-    pub parents: Vec<Rc<Formula>>,
+    pub parents: Vec<SharedFormula>,
     pub result: Option<Type>,
 }
 
