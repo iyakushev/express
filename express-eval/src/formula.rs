@@ -12,8 +12,9 @@ pub type SharedFormula = Rc<RefCell<Formula>>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct Formula {
+    pub name: String, // GATs!?! WHERE ARE MY GATS!?
     pub ast: IRNode,
-    pub next: Vec<SharedFormula>,
+    pub children: Vec<SharedFormula>,
     pub parents: Vec<SharedFormula>,
     pub result: Option<Type>,
 }
@@ -27,13 +28,14 @@ pub struct Formula {
 // }
 
 impl Formula {
-    pub fn new(expression: &str, eval_ctx: &Context) -> Result<Self, String> {
+    pub fn new(name: &str, expression: &str, eval_ctx: &Context) -> Result<Self, String> {
         let (_, ast) = match parse_expression(expression) {
             Ok(it) => it,
             Err(err) => return Err(format!("Failed to parse expression. Reason: {}", err)),
         };
         Ok(Self {
-            next: vec![],
+            name: name.to_string(),
+            children: vec![],
             ast: eval_ctx.visit_expr(ast)?,
             parents: vec![],
             result: None,

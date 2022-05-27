@@ -4,7 +4,9 @@ use crate::ir::IRNode;
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
-use std::collections::BTreeMap;
+use std::cell::Ref;
+use std::collections::{BTreeMap, BTreeSet};
+use std::hash::Hash;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -36,7 +38,31 @@ pub struct Interpreter<'i> {
 /// Assignes next node to a collection of parents
 fn set_next_for_parents(refs: &mut [SharedFormula], next: SharedFormula) {
     refs.iter()
-        .for_each(|fref| fref.borrow_mut().next.push(next.clone()));
+        .for_each(|fref| fref.borrow_mut().children.push(next.clone()));
+}
+
+/// Good ol' Depth-first search
+fn dfs(
+    node: Ref<Formula>,
+    known: &mut BTreeSet<String>, // FIXME remove unnecessary allocs for String
+    stack_trace: &mut BTreeSet<String>,
+) -> Result<(), String> {
+    for child in &node.children {
+        let child = child.borrow();
+        let name = child.name.clone();
+        if stack_trace.contains(child.name.as_str()) {
+            return Err(format!(
+                "Encountered a dependancy cycle! Node '{}' already has a dependency '{}'",
+                node.name, child.name
+            ));
+        } else if !known.contains(name.as_str()) {
+            stack_trace.insert(name);
+            return dfs(child, known, stack_trace);
+        }
+    }
+    stack_trace.remove(node.name.as_str());
+    known.insert(node.name.clone());
+    Ok(())
 }
 
 /// Loads functions and constants
@@ -69,10 +95,12 @@ impl<'i> Interpreter<'i> {
     pub fn new(formulas: &'i [NamedExpression], mut context: Context) -> Result<Self, String> {
         // Load standard library
         load_prelude(&mut context);
+        // TODO: optimization -> Make DAGbld struct that builds dag and holds node_map
+        // since it would be unused after the DAG has been created
         let mut node_map: BTreeMap<&str, SharedFormula> = BTreeMap::new();
         let mut nodes = Vec::new();
         for (name, exp) in formulas {
-            let formula = Formula::new(exp, &context)?;
+            let formula = Formula::new(name, exp, &context)?;
             nodes.push((*name, formula.clone()));
             node_map.insert(name, formula.make_shared());
         }
@@ -106,12 +134,25 @@ impl<'i> Interpreter<'i> {
             refs.clear();
         }
 
+        self.assert_dag_has_no_cycles()?;
+
         if self.root_nodes.is_empty() {
-            Err(format!("There is no formula without a dependency"))
+            Err(format!("There is a cyclic dependency in formulas"))
         } else {
             Ok(())
         }
         // fn dfs() {}
+    }
+
+    fn assert_dag_has_no_cycles(&self) -> Result<(), String> {
+        let mut known = BTreeSet::new();
+        for (name, formula) in &self.node_map {
+            let mut stack_trace = BTreeSet::new();
+            known.insert(name.to_string());
+            stack_trace.insert(name.to_string());
+            dfs(formula.borrow(), &mut known, &mut stack_trace)?;
+        }
+        Ok(())
     }
 
     fn resolve_ref(
@@ -285,10 +326,10 @@ mod test {
         let f = intrp.node_map.get("foo").unwrap();
         let result: i64 = intrp.eval(f.clone()).unwrap().into();
         assert_eq!(result, 8);
-        assert!(!f.borrow().next.is_empty());
+        assert!(!f.borrow().children.is_empty());
         let next_from_root = intrp.node_map.get("bar").unwrap().clone();
-        assert!(Rc::ptr_eq(&next_from_root, &f.borrow().next[0]));
-        assert!(next_from_root.borrow().next.is_empty());
+        assert!(Rc::ptr_eq(&next_from_root, &f.borrow().children[0]));
+        assert!(next_from_root.borrow().children.is_empty());
         // let result: i64 = intrp.compute_pass().unwrap().into();
         // assert_eq!(result, 16);
     }
