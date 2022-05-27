@@ -13,19 +13,18 @@ pub type SharedFormula = Rc<RefCell<Formula>>;
 #[derive(PartialEq, Debug, Clone)]
 pub struct Formula {
     pub ast: IRNode,
-    has_ref: bool,
     pub next: Vec<SharedFormula>,
     pub parents: Vec<SharedFormula>,
     pub result: Option<Type>,
 }
 
-impl Iterator for Formula {
-    type Item = Type;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.eval()
-    }
-}
+// impl Iterator for Formula {
+//     type Item = Type;
+//
+//     fn next(&mut self) -> Option<Self::Item> {
+//         self.eval()
+//     }
+// }
 
 impl Formula {
     pub fn new(expression: &str, eval_ctx: &Context) -> Result<Self, String> {
@@ -35,19 +34,10 @@ impl Formula {
         };
         Ok(Self {
             next: vec![],
-            has_ref: false,
             ast: eval_ctx.visit_expr(ast)?,
             parents: vec![],
             result: None,
         })
-    }
-
-    pub fn inc_ref(&mut self) {
-        self.has_ref = true;
-    }
-
-    pub const fn has_ref(&self) -> bool {
-        self.has_ref
     }
 
     /// Consumes formula and creates SharedFormula

@@ -16,12 +16,12 @@ type NamedExpression<'e> = (&'e str, &'e str);
 
 // NOTE(iy):
 // On Interpreter optimizations
-// | Resolve references (&name)
-// | Inline reference AST if it is reduced to IRNode::Value
-// | Find common partial AST inside each expression
-// | => promote it to a new formula
-// | => insert references to the new formula inplace
-// | Init stateful functions (?)
+// |[x] Resolve references (&name)
+// |[ ] Inline reference AST if it is reduced to IRNode::Value
+// |[ ] Find common partial AST inside each expression
+// |[ ]     => promote it to a new formula
+// |[ ]     => insert references to the new formula inplace
+// |[ ] Init stateful functions (?)
 
 /// Represents evaluation entry point. When supplied a new Context
 /// it gets populated with std library contents automatically.
@@ -29,8 +29,14 @@ type NamedExpression<'e> = (&'e str, &'e str);
 /// to populate it with your custom 3rd party library code if needed.
 pub struct Interpreter<'i> {
     pub ctx: Context,
-    pub root_nodes: Vec<&'i str>,
+    pub root_nodes: Vec<SharedFormula>,
     pub node_map: BTreeMap<&'i str, SharedFormula>,
+}
+
+/// Assignes next node to a collection of parents
+fn set_next_for_parents(refs: &mut [SharedFormula], next: SharedFormula) {
+    refs.iter()
+        .for_each(|fref| fref.borrow_mut().next.push(next.clone()));
 }
 
 /// Loads functions and constants
@@ -85,23 +91,20 @@ impl<'i> Interpreter<'i> {
     where
         It: Iterator<Item = (&'i str, Formula)>,
     {
+        let mut refs = Vec::new();
         for (name, f) in nodes.into_iter() {
-            let fresolved = self.resolve_ref(f.ast)?;
+            let fresolved = self.resolve_ref(f.ast, &mut refs)?;
             let fnode = self.node_map.get(name).unwrap();
-            fnode.borrow_mut().ast = fresolved;
+            if refs.is_empty() {
+                self.root_nodes.push(fnode.clone());
+            } else {
+                let mut fnode_inner = fnode.borrow_mut();
+                fnode_inner.ast = fresolved;
+                set_next_for_parents(refs.as_mut_slice(), fnode.clone());
+                fnode_inner.parents = refs.clone();
+            }
+            refs.clear();
         }
-
-        self.root_nodes = self
-            .node_map
-            .iter()
-            .filter_map(|(n, f)| {
-                if !f.borrow().has_ref() {
-                    Some(*n)
-                } else {
-                    None
-                }
-            })
-            .collect();
 
         if self.root_nodes.is_empty() {
             Err(format!("There is no formula without a dependency"))
@@ -111,27 +114,32 @@ impl<'i> Interpreter<'i> {
         // fn dfs() {}
     }
 
-    fn resolve_ref(&mut self, mut expr: IRNode) -> Result<IRNode, String> {
+    fn resolve_ref(
+        &mut self,
+        mut expr: IRNode,
+        refs: &mut Vec<SharedFormula>,
+    ) -> Result<IRNode, String> {
         match expr {
             IRNode::Value(_) => Ok(expr),
             IRNode::Function(_, ref mut args) => {
                 for arg in args.iter_mut() {
-                    *arg = self.resolve_ref(arg.clone())?;
+                    *arg = self.resolve_ref(arg.clone(), refs)?;
                 }
                 Ok(expr)
             }
             IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
-                **lhs = self.resolve_ref(*lhs.clone())?;
-                **rhs = self.resolve_ref(*rhs.clone())?;
+                **lhs = self.resolve_ref(*lhs.clone(), refs)?;
+                **rhs = self.resolve_ref(*rhs.clone(), refs)?;
                 Ok(expr)
             }
             IRNode::UnOp(ref mut rhs, _) => {
-                **rhs = self.resolve_ref(*rhs.clone())?;
+                **rhs = self.resolve_ref(*rhs.clone(), refs)?;
                 Ok(expr)
             }
             IRNode::Ref(ref mut fref) => {
                 if let Some(f) = self.node_map.get(fref.name.as_str()) {
                     fref.link_with(f.clone());
+                    refs.push(f.clone());
                     Ok(expr)
                 } else {
                     Err(format!("Failed to find referant formula '{}'", fref.name))
@@ -141,21 +149,14 @@ impl<'i> Interpreter<'i> {
     }
 
     /// Evaluates formula
-    pub fn eval(&self, formula_name: &str) -> Option<Type> {
-        let formula = self.node_map.get(formula_name)?;
+    pub fn eval(&self, formula: SharedFormula) -> Option<Type> {
         self.visit_expr(&formula.borrow().ast)
-    }
-
-    fn compute_subpass(&mut self, root: &str) -> Option<Type> {
-        let root = self.node_map.get(root)?;
-        // root.borrow_mut().next;
-        None
     }
 
     pub fn compute_pass(&mut self) -> Option<Type> {
         let mut last_result = None;
         for root in &self.root_nodes {
-            last_result = self.eval(root);
+            last_result = self.eval(root.clone());
         }
         last_result
     }
@@ -234,6 +235,8 @@ impl<'i> Visit<&IRNode> for Interpreter<'i> {
 #[cfg(test)]
 mod test {
 
+    use std::rc::Rc;
+
     use super::*;
     use crate::ctx::InterpreterContext;
     use express::types::{Callable, Type};
@@ -259,14 +262,16 @@ mod test {
     pub fn simple_expression() {
         let ctx = test_expr!(; "add" => Box::new(resolve_name!(add)));
         let i = Interpreter::new(&[("foo", "2 + add(12 - 2, add(1, 1))")], ctx).unwrap();
-        let result: f64 = i.eval("foo").unwrap().into();
+        let f = i.node_map.get("foo").unwrap();
+        let result: f64 = i.eval(f.clone()).unwrap().into();
         assert_eq!(result, 14.0);
     }
 
     #[test]
     pub fn expr_with_std_call() {
         let intrp = Interpreter::new(&[("foo", "2+2*2+log(2,4)")], Context::new()).unwrap();
-        let result: i64 = intrp.eval("foo").unwrap().into();
+        let f = intrp.node_map.get("foo").unwrap();
+        let result: i64 = intrp.eval(f.clone()).unwrap().into();
         assert_eq!(result, 8);
     }
 
@@ -277,10 +282,15 @@ mod test {
             Context::new(),
         )
         .unwrap();
-        let result: i64 = intrp.eval("foo").unwrap().into();
+        let f = intrp.node_map.get("foo").unwrap();
+        let result: i64 = intrp.eval(f.clone()).unwrap().into();
         assert_eq!(result, 8);
-        let result: i64 = intrp.compute_pass().unwrap().into();
-        assert_eq!(result, 16);
+        assert!(!f.borrow().next.is_empty());
+        let next_from_root = intrp.node_map.get("bar").unwrap().clone();
+        assert!(Rc::ptr_eq(&next_from_root, &f.borrow().next[0]));
+        assert!(next_from_root.borrow().next.is_empty());
+        // let result: i64 = intrp.compute_pass().unwrap().into();
+        // assert_eq!(result, 16);
     }
 
     #[test]

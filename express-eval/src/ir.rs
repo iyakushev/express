@@ -30,7 +30,6 @@ impl FormulaLink {
     /// Links current formula with referant
     pub fn link_with(&mut self, formula: SharedFormula) {
         self.link = Some(formula.clone());
-        formula.borrow_mut().inc_ref();
     }
 }
 
