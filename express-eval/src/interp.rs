@@ -1,6 +1,6 @@
 use crate::ctx::{Context, InterpreterContext};
 use crate::formula::{Formula, SharedFormula};
-use crate::ir::IRNode;
+use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
@@ -19,6 +19,7 @@ type NamedExpression<'e> = (&'e str, &'e str);
 // NOTE(iy):
 // On Interpreter optimizations
 // |[x] Resolve references (&name)
+// |[x] Build DAG with dfs check
 // |[ ] Inline reference AST if it is reduced to IRNode::Value
 // |[ ] Find common partial AST inside each expression
 // |[ ]     => promote it to a new formula
@@ -179,9 +180,14 @@ impl<'i> Interpreter<'i> {
             }
             IRNode::Ref(ref mut fref) => {
                 if let Some(f) = self.node_map.get(fref.name.as_str()) {
-                    fref.link_with(f.clone());
-                    refs.push(f.clone());
-                    Ok(expr)
+                    // OPTIMIZATION: inline const ast
+                    if let IRNode::Value(val) = &f.borrow().ast {
+                        return Ok(IRNode::Value(val.clone()));
+                    } else {
+                        fref.link_with(f.clone());
+                        refs.push(f.clone());
+                        return Ok(expr);
+                    }
                 } else {
                     Err(format!("Failed to find referant formula '{}'", fref.name))
                 }
@@ -318,20 +324,31 @@ mod test {
 
     #[test]
     pub fn expr_with_ref_call() {
-        let mut intrp = Interpreter::new(
-            &[("foo", "2+2*2+log(2,4)"), ("bar", "&foo * 2")],
-            Context::new(),
-        )
-        .unwrap();
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let mut intrp =
+            Interpreter::new(&[("foo", "2+2*2+add(2,4)"), ("bar", "&foo * 2")], ctx).unwrap();
         let f = intrp.node_map.get("foo").unwrap();
         let result: i64 = intrp.eval(f.clone()).unwrap().into();
-        assert_eq!(result, 8);
+        assert_eq!(result, 12);
         assert!(!f.borrow().children.is_empty());
         let next_from_root = intrp.node_map.get("bar").unwrap().clone();
         assert!(Rc::ptr_eq(&next_from_root, &f.borrow().children[0]));
         assert!(next_from_root.borrow().children.is_empty());
         // let result: i64 = intrp.compute_pass().unwrap().into();
         // assert_eq!(result, 16);
+    }
+
+    #[test]
+    fn expr_opt_inline_const() {
+        let intrp = Interpreter::new(
+            &[("foo", "2 + 2 * 2 + log(2, 4)"), ("bar", "&foo * 2")],
+            Context::new(),
+        )
+        .unwrap();
+        assert!(intrp.root_nodes[0].borrow().children.is_empty());
+        let f = intrp.node_map.get("bar").unwrap().borrow();
+        assert_eq!(f.ast, IRNode::Value(Type::Number(16.0)));
     }
 
     #[test]
