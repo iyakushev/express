@@ -85,6 +85,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
         argcnt += 1;
     }
     let fn_name = mangle_struct_name(function.sig.ident.clone());
+    let fn_src_name = function.sig.ident.clone();
     let attrs = function.attrs.clone();
     if let ReturnType::Default = function.sig.output {
         return syn::Error::new(
@@ -114,10 +115,17 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
 
             fn init(&mut self, args: &[Type]) {}
 
+            #[inline(always)]
+            fn name(&self) -> &str {
+                stringify!(#fn_src_name)
+            }
+
+            #[inline(always)]
             fn argcnt(&self) -> usize {
                 #argcnt
             }
 
+            #[inline(always)]
             fn is_pure(&self) -> bool {
                 #is_pure
             }

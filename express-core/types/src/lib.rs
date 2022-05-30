@@ -51,21 +51,20 @@ pub trait Callable {
     /// Allows struct to initialize its internal state.
     fn init(&mut self, args: &[Type]);
 
+    // One day we will get Trait const fn
+    /// Returns the name of an object.
+    fn name(&self) -> &str;
+
     // fn init(args: &[Type]) -> Self;
     fn call(&self, args: &[Type]) -> Option<Type>;
 
+    /// Returns a number of arguments the function expects
     fn argcnt(&self) -> usize;
 
     /// Signifies if the Callable object stands for a pure function.
     /// If all of its arguments are Const as well (or pure functions with const args).
     /// Then the call can be performed at the graph "build time" rather than runtime.
     fn is_pure(&self) -> bool {
-        false
-    }
-
-    /// Tells Optimizer that this object must be created
-    /// before inlining it into AST
-    fn should_be_created(&self) -> bool {
         false
     }
 }

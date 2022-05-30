@@ -2,6 +2,7 @@ use crate::{ctx::Context, ir::IRNode};
 use express::lang::{ast::Visit, parser::parse_expression};
 use express::types::Type;
 use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// This is a shared primitive. There might be a need of changing
@@ -50,6 +51,45 @@ impl Formula {
     /// Evaluates formula and returns its result as __Option<Type>__
     pub fn eval(&self) -> Option<Type> {
         self.visit_expr(&self.ast)
+    }
+
+    pub fn resolve_ref(
+        &mut self,
+        mut expr: IRNode,
+        node_map: &BTreeMap<&str, SharedFormula>,
+    ) -> Result<IRNode, String> {
+        match expr {
+            IRNode::Value(_) => Ok(expr),
+            IRNode::Function(_, ref mut args) => {
+                for arg in args.iter_mut() {
+                    *arg = self.resolve_ref(arg.clone(), node_map)?;
+                }
+                Ok(expr)
+            }
+            IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
+                **lhs = self.resolve_ref(*lhs.clone(), node_map)?;
+                **rhs = self.resolve_ref(*rhs.clone(), node_map)?;
+                Ok(expr)
+            }
+            IRNode::UnOp(ref mut rhs, _) => {
+                **rhs = self.resolve_ref(*rhs.clone(), node_map)?;
+                Ok(expr)
+            }
+            IRNode::Ref(ref mut fref) => {
+                if let Some(f) = node_map.get(fref.name.as_str()) {
+                    // OPTIMIZATION: inline const ast
+                    if let IRNode::Value(val) = &f.borrow().ast {
+                        return Ok(IRNode::Value(val.clone()));
+                    } else {
+                        fref.link_with(f.clone());
+                        self.parents.push(f.clone());
+                        return Ok(expr);
+                    }
+                } else {
+                    Err(format!("Failed to find referant formula '{}'", fref.name))
+                }
+            }
+        }
     }
 }
 

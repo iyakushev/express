@@ -61,7 +61,9 @@ impl Debug for IRNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Value(arg0) => f.debug_tuple("Number").field(arg0).finish(),
-            Self::Function(_, arg1) => f.debug_tuple("Function").field(arg1).finish(),
+            Self::Function(call, arg1) => {
+                f.write_fmt(format_args!("fn {}(args={:?})", call.name(), arg1))
+            }
             Self::BinOp(arg0, arg1, arg2) => f
                 .debug_tuple("BinOp")
                 .field(arg0)

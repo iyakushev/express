@@ -1,12 +1,11 @@
 use crate::ctx::{Context, InterpreterContext};
 use crate::formula::{Formula, SharedFormula};
-use crate::ir::{FormulaLink, IRNode};
+use crate::ir::IRNode;
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
 use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
-use std::hash::Hash;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -20,7 +19,7 @@ type NamedExpression<'e> = (&'e str, &'e str);
 // On Interpreter optimizations
 // |[x] Resolve references (&name)
 // |[x] Build DAG with dfs check
-// |[ ] Inline reference AST if it is reduced to IRNode::Value
+// |[x] Inline reference AST if it is reduced to IRNode::Value
 // |[ ] Find common partial AST inside each expression
 // |[ ]     => promote it to a new formula
 // |[ ]     => insert references to the new formula inplace
@@ -37,7 +36,7 @@ pub struct Interpreter<'i> {
 }
 
 /// Assignes next node to a collection of parents
-fn set_next_for_parents(refs: &mut [SharedFormula], next: SharedFormula) {
+fn link_child_with_parents(refs: &mut [SharedFormula], next: SharedFormula) {
     refs.iter()
         .for_each(|fref| fref.borrow_mut().children.push(next.clone()));
 }
@@ -116,33 +115,74 @@ impl<'i> Interpreter<'i> {
         Ok(intrp)
     }
 
-    pub fn build_dag<It>(&mut self, nodes: It) -> Result<(), String>
+    /// Creates a Direct Acyclic Graph for the stage execution.
+    /// Refernces introduce dependencies and therefore they should be
+    /// managed in a tree-flow fashion.
+    fn build_dag<It>(&mut self, nodes: It) -> Result<(), String>
     where
         It: Iterator<Item = (&'i str, Formula)>,
     {
-        let mut refs = Vec::new();
         for (name, f) in nodes.into_iter() {
-            let fresolved = self.resolve_ref(f.ast, &mut refs)?;
-            let fnode = self.node_map.get(name).unwrap();
-            if refs.is_empty() {
+            let fnode = self.node_map.get(name).unwrap().clone();
+            let mut fnode_inner = fnode.borrow_mut();
+            fnode_inner.ast = fnode_inner.resolve_ref(f.ast, &self.node_map)?;
+
+            if fnode_inner.parents.is_empty() {
                 self.root_nodes.push(fnode.clone());
             } else {
-                let mut fnode_inner = fnode.borrow_mut();
-                fnode_inner.ast = fresolved;
-                set_next_for_parents(refs.as_mut_slice(), fnode.clone());
-                fnode_inner.parents = refs.clone();
+                link_child_with_parents(fnode_inner.parents.as_mut_slice(), fnode.clone());
             }
-            refs.clear();
         }
 
         self.assert_dag_has_no_cycles()?;
+        self.opt_const_nodes();
 
         if self.root_nodes.is_empty() {
             Err(format!("There is a cyclic dependency in formulas"))
         } else {
             Ok(())
         }
-        // fn dfs() {}
+    }
+
+    fn opt_const_nodes(&self) {
+        for (_, f) in &self.node_map {
+            let mut formula = f.borrow_mut();
+            if let Some(val) = self._opt_const_helper(&formula.ast) {
+                formula.ast = IRNode::Value(val);
+            }
+        }
+    }
+
+    fn _opt_const_helper(&self, expr: &IRNode) -> Option<Type> {
+        match expr {
+            // NOTE(iy): smelly part. We have to clone values.
+            // Its ok for Number/TimeStep/Collection(it only clones ptr) but might be bad for
+            // String.
+            // FIXME: Possibly introduce currying at optimization level?
+            IRNode::Value(n) => Some((*n).clone()),
+            IRNode::Function(fn_obj, args) => {
+                if !fn_obj.is_pure() {
+                    return None;
+                }
+                let mut resolved_args = Vec::with_capacity(args.len());
+
+                // resolves arguments
+                for arg in args {
+                    resolved_args.push(self._opt_const_helper(arg)?);
+                }
+                Some(fn_obj.call(resolved_args.as_slice())?.into())
+            }
+            IRNode::BinOp(lhs, rhs, op) => {
+                let lhs: f64 = self._opt_const_helper(lhs)?.into();
+                let rhs: f64 = self._opt_const_helper(rhs)?.into();
+                Some(Type::Number(op.eval(lhs, rhs)))
+            }
+            IRNode::UnOp(rhs, op) => {
+                let rhs: f64 = self._opt_const_helper(rhs)?.into();
+                Some(Type::Number(op.unary_eval(rhs)))
+            }
+            IRNode::Ref(formula) => formula.link().as_deref()?.borrow().result.clone(),
+        }
     }
 
     fn assert_dag_has_no_cycles(&self) -> Result<(), String> {
@@ -154,45 +194,6 @@ impl<'i> Interpreter<'i> {
             dfs(formula.borrow(), &mut known, &mut stack_trace)?;
         }
         Ok(())
-    }
-
-    fn resolve_ref(
-        &mut self,
-        mut expr: IRNode,
-        refs: &mut Vec<SharedFormula>,
-    ) -> Result<IRNode, String> {
-        match expr {
-            IRNode::Value(_) => Ok(expr),
-            IRNode::Function(_, ref mut args) => {
-                for arg in args.iter_mut() {
-                    *arg = self.resolve_ref(arg.clone(), refs)?;
-                }
-                Ok(expr)
-            }
-            IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
-                **lhs = self.resolve_ref(*lhs.clone(), refs)?;
-                **rhs = self.resolve_ref(*rhs.clone(), refs)?;
-                Ok(expr)
-            }
-            IRNode::UnOp(ref mut rhs, _) => {
-                **rhs = self.resolve_ref(*rhs.clone(), refs)?;
-                Ok(expr)
-            }
-            IRNode::Ref(ref mut fref) => {
-                if let Some(f) = self.node_map.get(fref.name.as_str()) {
-                    // OPTIMIZATION: inline const ast
-                    if let IRNode::Value(val) = &f.borrow().ast {
-                        return Ok(IRNode::Value(val.clone()));
-                    } else {
-                        fref.link_with(f.clone());
-                        refs.push(f.clone());
-                        return Ok(expr);
-                    }
-                } else {
-                    Err(format!("Failed to find referant formula '{}'", fref.name))
-                }
-            }
-        }
     }
 
     /// Evaluates formula
@@ -208,7 +209,7 @@ impl<'i> Interpreter<'i> {
         last_result
     }
 
-    pub fn eval_threaded(&self, th_num: usize) -> &[Option<Type>] {
+    pub fn _eval_threaded(&self, th_num: usize) -> &[Option<Type>] {
         unimplemented!()
     }
 }
@@ -352,9 +353,38 @@ mod test {
     }
 
     #[test]
+    fn expr_opt_const_2nd_pass() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(
+            &[
+                ("foo", "2 + 2 * 2 + log(2, 4)"),
+                ("bar", "log(2, &foo)"),
+                ("fuz", "add(2, &foo)"), // can't be optmizied
+            ],
+            ctx,
+        )
+        .unwrap();
+        assert!(intrp.root_nodes[0].borrow().children.is_empty());
+        let f = intrp.node_map.get("bar").unwrap().borrow();
+        assert_eq!(f.ast, IRNode::Value(Type::Number(3.0)));
+        let f = intrp.node_map.get("fuz").unwrap().borrow();
+        assert_eq!(
+            f.ast,
+            IRNode::Function(
+                Rc::new(__add),
+                vec![
+                    IRNode::Value(Type::Number(2.0)),
+                    IRNode::Value(Type::Number(8.0))
+                ]
+            )
+        );
+    }
+
+    #[test]
     pub fn expr_with_simple_cyclic_ref() {
         let intrp = Interpreter::new(
-            &[("foo", "11 + &bar"), ("bar", "&foo + 11")],
+            &[("foo", "11 + &bary"), ("bary", "&foo + 11")],
             Context::new(),
         );
         assert!(matches!(intrp, Err(_)));
