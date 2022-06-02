@@ -1,4 +1,8 @@
-use std::{fmt::Debug, rc::Rc, sync::Arc};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+    sync::Arc,
+};
 
 /// Representation of valid runtime types.
 /// Every function that implements [Callable] trait must
@@ -15,12 +19,29 @@ pub enum Type {
     // Function(Function),
 }
 
+impl Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Number(num) => write!(f, "{}", num),
+            Type::String(string) => write!(f, "{}", string),
+            Type::Collection(coll) => write!(f, "{:?}", *coll),
+            Type::TimeStep(ts) => write!(f, "{}", ts),
+        }
+    }
+}
+
 /// A wrapping structure around `(f64, f64)` that represents
 /// a single tick of data with fields.
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub struct TimeStep {
     pub price: f64,
     pub time: f64,
+}
+
+impl Display for TimeStep {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "TimeStep<price: {}, time: {}>", self.price, self.time)
+    }
 }
 
 /// Represents a general runtime concept of a function.

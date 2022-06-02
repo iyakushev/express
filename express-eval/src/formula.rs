@@ -3,6 +3,7 @@ use express::lang::{ast::Visit, parser::parse_expression};
 use express::types::Type;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::rc::Rc;
 
 /// This is a shared primitive. There might be a need of changing
@@ -11,7 +12,7 @@ use std::rc::Rc;
 //pub type SharedFormula = Rc<RefCell<Formula>>;
 pub type SharedFormula = Rc<RefCell<Formula>>;
 
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Clone)]
 pub struct Formula {
     pub name: String, // GATs!?! WHERE ARE MY GATS!?
     pub ast: IRNode,
@@ -20,13 +21,31 @@ pub struct Formula {
     pub result: Option<Type>,
 }
 
-// impl Iterator for Formula {
-//     type Item = Type;
-//
-//     fn next(&mut self) -> Option<Self::Item> {
-//         self.eval()
-//     }
-// }
+impl Debug for Formula {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Formula")
+            .field("name", &self.name)
+            .field("ast", &self.ast)
+            .field(
+                "children",
+                &self
+                    .children
+                    .iter()
+                    .map(|ch| ch.borrow().name.clone())
+                    .collect::<Vec<String>>(),
+            )
+            .field(
+                "parents",
+                &self
+                    .children
+                    .iter()
+                    .map(|p| p.borrow().name.clone())
+                    .collect::<Vec<String>>(),
+            )
+            .field("result", &self.result)
+            .finish()
+    }
+}
 
 impl Formula {
     pub fn new(name: &str, expression: &str, eval_ctx: &Context) -> Result<Self, String> {
@@ -56,7 +75,7 @@ impl Formula {
     pub fn resolve_ref(
         &mut self,
         mut expr: IRNode,
-        node_map: &BTreeMap<&str, SharedFormula>,
+        node_map: &BTreeMap<String, SharedFormula>,
     ) -> Result<IRNode, String> {
         match expr {
             IRNode::Value(_) => Ok(expr),
@@ -81,7 +100,7 @@ impl Formula {
                     if let IRNode::Value(val) = &f.borrow().ast {
                         return Ok(IRNode::Value(val.clone()));
                     } else {
-                        fref.link_with(f.clone());
+                        fref.link_with(f);
                         self.parents.push(f.clone());
                         return Ok(expr);
                     }

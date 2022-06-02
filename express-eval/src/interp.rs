@@ -1,11 +1,12 @@
 use crate::ctx::{Context, InterpreterContext};
 use crate::formula::{Formula, SharedFormula};
-use crate::ir::IRNode;
+use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
-use std::cell::Ref;
+use std::cell::{Ref, RefCell};
 use std::collections::{BTreeMap, BTreeSet};
+use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -20,19 +21,19 @@ type NamedExpression<'e> = (&'e str, &'e str);
 // |[x] Resolve references (&name)
 // |[x] Build DAG with dfs check
 // |[x] Inline reference AST if it is reduced to IRNode::Value
-// |[ ] Find common partial AST inside each expression
-// |[ ]     => promote it to a new formula
-// |[ ]     => insert references to the new formula inplace
 // |[ ] Init stateful functions (?)
+// |[+-] Find common partial AST inside each expression
+// |[x]     => promote it to a new formula
+// |[x]     => insert references to the new formula inplace
 
 /// Represents evaluation entry point. When supplied a new Context
 /// it gets populated with std library contents automatically.
 /// Before you instanciate the interpreter you must call `use_library!`
 /// to populate it with your custom 3rd party library code if needed.
-pub struct Interpreter<'i> {
+pub struct Interpreter {
     pub ctx: Context,
     pub root_nodes: Vec<SharedFormula>,
-    pub node_map: BTreeMap<&'i str, SharedFormula>,
+    pub node_map: BTreeMap<String, SharedFormula>,
 }
 
 /// Assignes next node to a collection of parents
@@ -90,19 +91,19 @@ fn load_prelude(ctx: &mut Context) {
     }
 }
 
-impl<'i> Interpreter<'i> {
+impl Interpreter {
     /// Creates a new interpreter context from
-    pub fn new(formulas: &'i [NamedExpression], mut context: Context) -> Result<Self, String> {
+    pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
         // Load standard library
         load_prelude(&mut context);
         // TODO: optimization -> Make DAGbld struct that builds dag and holds node_map
         // since it would be unused after the DAG has been created
-        let mut node_map: BTreeMap<&str, SharedFormula> = BTreeMap::new();
+        let mut node_map: BTreeMap<String, SharedFormula> = BTreeMap::new();
         let mut nodes = Vec::new();
         for (name, exp) in formulas {
             let formula = Formula::new(name, exp, &context)?;
-            nodes.push((*name, formula.clone()));
-            node_map.insert(name, formula.make_shared());
+            nodes.push((name.to_string(), formula.clone()));
+            node_map.insert(name.to_string(), formula.make_shared());
         }
         let mut intrp = Self {
             ctx: context,
@@ -120,12 +121,15 @@ impl<'i> Interpreter<'i> {
     /// managed in a tree-flow fashion.
     fn build_dag<It>(&mut self, nodes: It) -> Result<(), String>
     where
-        It: Iterator<Item = (&'i str, Formula)>,
+        It: Iterator<Item = (String, Formula)>,
     {
-        for (name, f) in nodes.into_iter() {
-            let fnode = self.node_map.get(name).unwrap().clone();
+        let mut unused = BTreeSet::new();
+        for (name, _) in nodes.into_iter() {
+            let fnode = self.node_map.get(&name).unwrap().clone();
             let mut fnode_inner = fnode.borrow_mut();
-            fnode_inner.ast = fnode_inner.resolve_ref(f.ast, &self.node_map)?;
+
+            // This would ensure that previous formula functions gets referenced
+            self.manage_references(&mut fnode_inner, &mut unused)?;
 
             if fnode_inner.parents.is_empty() {
                 self.root_nodes.push(fnode.clone());
@@ -134,6 +138,7 @@ impl<'i> Interpreter<'i> {
             }
         }
 
+        self.remove_single_formula_calls(unused);
         self.assert_dag_has_no_cycles()?;
         self.opt_const_nodes();
 
@@ -144,9 +149,91 @@ impl<'i> Interpreter<'i> {
         }
     }
 
+    fn manage_references(
+        &mut self,
+        formula: &mut Formula,
+        unused: &mut BTreeSet<String>,
+    ) -> Result<(), String> {
+        let mut ir = formula.ast.clone();
+        // optimization: Incapsulate repeating functions in a separate formula
+        ir = self._find_dup_fns(unused, ir.clone());
+        // resolve references (links everything together)
+        formula.ast = formula.resolve_ref(ir.clone(), &self.node_map)?;
+        Ok(())
+    }
+
+    fn mangle_fname(node: &IRNode) -> String {
+        format!("__{}", node)
+    }
+
+    fn remove_single_formula_calls(&mut self, unused: BTreeSet<String>) {
+        unused.iter().for_each(|name| {
+            self.node_map.remove(name);
+        });
+    }
+    /// Incapsulates same partial tree nodes in a different formula.
+    /// This optimization allows the compiler to initialize stateful
+    /// functions only once and later compute them seperately to reuse
+    /// their result.
+    fn _find_dup_fns(&mut self, unused: &mut BTreeSet<String>, mut expr: IRNode) -> IRNode {
+        match expr {
+            IRNode::Value(_) => expr,
+            IRNode::Ref(ref mut rf) => {
+                if rf.count() <= 1 && rf.link().is_some() {
+                    self.node_map.remove(&rf.name);
+                    let f = rf.link().unwrap().clone();
+                    drop(rf);
+                    let f = f.borrow_mut().ast.clone();
+                    return f;
+                }
+                expr
+            }
+            IRNode::Function(ref func, ref args) => {
+                if func.is_pure() {
+                    return expr;
+                }
+                // mangle formula name and check its presents
+                let fname = Interpreter::mangle_fname(&expr);
+                if let Some(val) = self.node_map.get(&fname) {
+                    unused.remove(&fname);
+                    let mut link = FormulaLink::new(&fname);
+                    link.link_with(val);
+
+                    return IRNode::Ref(link);
+                } else {
+                    // create formula
+                    let f = Formula {
+                        ast: IRNode::Function(func.clone(), args.clone()),
+                        children: vec![],
+                        parents: vec![],
+                        name: func.name().to_string(),
+                        result: None,
+                    };
+                    // and record it
+                    self.node_map
+                        .insert(fname.clone(), Rc::new(RefCell::new(f)));
+                    unused.insert(fname);
+                }
+
+                IRNode::Function(func.clone(), args.clone())
+            }
+            IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
+                **lhs = self._find_dup_fns(unused, *lhs.clone());
+                **rhs = self._find_dup_fns(unused, *rhs.clone());
+                expr
+            }
+            IRNode::UnOp(ref mut lhs, _) => {
+                **lhs = self._find_dup_fns(unused, *lhs.clone());
+                expr
+            }
+        }
+    }
+
+    /// Inline const result evaluation
     fn opt_const_nodes(&self) {
-        for (_, f) in &self.node_map {
+        for (name, f) in &self.node_map {
             let mut formula = f.borrow_mut();
+            println!("\nCONST INLINE {}: {}", name, formula.ast);
             if let Some(val) = self._opt_const_helper(&formula.ast) {
                 formula.ast = IRNode::Value(val);
             }
@@ -209,7 +296,7 @@ impl<'i> Interpreter<'i> {
         last_result
     }
 
-    pub fn _eval_threaded(&self, th_num: usize) -> &[Option<Type>] {
+    pub fn _eval_threaded(&self, _th_num: usize) -> &[Option<Type>] {
         unimplemented!()
     }
 }
@@ -230,7 +317,7 @@ impl<'i> Interpreter<'i> {
 //     }
 // }
 
-impl<'i> Visit<&IRNode> for Interpreter<'i> {
+impl Visit<&IRNode> for Interpreter {
     type Returns = Option<Type>;
 
     // NOTE(iy): This call is unused because visit_expr
@@ -327,8 +414,11 @@ mod test {
     pub fn expr_with_ref_call() {
         let mut ctx = Context::new();
         ctx.register_function("add", Box::new(__add));
-        let mut intrp =
+        let intrp =
             Interpreter::new(&[("foo", "2+2*2+add(2,4)"), ("bar", "&foo * 2")], ctx).unwrap();
+        for (n, node) in intrp.node_map.iter() {
+            println!("{}: {}", n, node.borrow().ast);
+        }
         let f = intrp.node_map.get("foo").unwrap();
         let result: i64 = intrp.eval(f.clone()).unwrap().into();
         assert_eq!(result, 12);
@@ -343,12 +433,12 @@ mod test {
     #[test]
     fn expr_opt_inline_const() {
         let intrp = Interpreter::new(
-            &[("foo", "2 + 2 * 2 + log(2, 4)"), ("bar", "&foo * 2")],
+            &[("far", "2 + 2 * 2 + log(2, 4)"), ("bor", "&far * 2")],
             Context::new(),
         )
         .unwrap();
         assert!(intrp.root_nodes[0].borrow().children.is_empty());
-        let f = intrp.node_map.get("bar").unwrap().borrow();
+        let f = intrp.node_map.get("bor").unwrap().borrow();
         assert_eq!(f.ast, IRNode::Value(Type::Number(16.0)));
     }
 
@@ -388,5 +478,23 @@ mod test {
             Context::new(),
         );
         assert!(matches!(intrp, Err(_)));
+    }
+
+    #[test]
+    pub fn expr_with_repeating_calls() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(
+            &[
+                ("foo", "11 + add(1, 1)"),
+                ("bar", "2 * add(1, 1) + add(1, 1)"),
+            ],
+            ctx,
+        )
+        .unwrap();
+        for (name, node) in intrp.node_map.iter() {
+            println!("{}: {}", name, node.borrow().ast);
+        }
+        assert_eq!(intrp.node_map.len(), 3);
     }
 }

@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, PartialEq, Clone, PartialOrd)]
 pub enum Literal {
     Ident(String),
@@ -15,6 +17,19 @@ pub enum Operation {
     Factorial,
 }
 
+impl Display for Operation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Operation::Plus => write!(f, "+"),
+            Operation::Minus => write!(f, "-"),
+            Operation::Times => write!(f, "*"),
+            Operation::Divide => write!(f, "/"),
+            Operation::Power => write!(f, "**"),
+            Operation::Factorial => write!(f, "!"),
+        }
+    }
+}
+
 impl Operation {
     #[inline]
     pub fn eval(&self, lhs: f64, rhs: f64) -> f64 {
@@ -24,7 +39,7 @@ impl Operation {
             Operation::Times => lhs * rhs,
             Operation::Divide => lhs / rhs,
             Operation::Power => rhs.powf(lhs),
-            Operation::Factorial => (rhs as usize..1).fold(1.0, |acc, val| acc * val as f64),
+            _ => unimplemented!(), //Operation::Factorial => (rhs as usize..1).fold(1.0, |acc, val| acc * val as f64),
         }
     }
 
