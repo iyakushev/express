@@ -4,9 +4,8 @@ use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
 use express::types::Type;
 use express::xmacro::use_library;
-use std::cell::{Ref, RefCell};
+use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
-use std::rc::Rc;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -123,7 +122,9 @@ impl Interpreter {
     where
         It: Iterator<Item = (String, Formula)>,
     {
-        let mut unused = BTreeSet::new();
+        // order matters.
+        // Unused links will be resolved in a reverse order
+        let mut unused = Vec::new();
         for (name, _) in nodes.into_iter() {
             let fnode = self.node_map.get(&name).unwrap().clone();
             let mut fnode_inner = fnode.borrow_mut();
@@ -138,12 +139,12 @@ impl Interpreter {
             }
         }
 
-        self.remove_single_formula_calls(unused);
+        self.remove_redundant_references(unused.as_slice())?;
         self.assert_dag_has_no_cycles()?;
         self.opt_const_nodes();
 
         if self.root_nodes.is_empty() {
-            Err(format!("There is a cyclic dependency in formulas"))
+            Err(format!("Root nodes are empty. Execution graph is invalid"))
         } else {
             Ok(())
         }
@@ -152,7 +153,7 @@ impl Interpreter {
     fn manage_references(
         &mut self,
         formula: &mut Formula,
-        unused: &mut BTreeSet<String>,
+        unused: &mut Vec<String>,
     ) -> Result<(), String> {
         let mut ir = formula.ast.clone();
         // optimization: Incapsulate repeating functions in a separate formula
@@ -166,16 +167,41 @@ impl Interpreter {
         format!("__{}", node)
     }
 
-    fn remove_single_formula_calls(&mut self, unused: BTreeSet<String>) {
-        unused.iter().for_each(|name| {
-            self.node_map.remove(name);
-        });
+    fn remove_redundant_references(&mut self, unused: &[String]) -> Result<(), String> {
+        for name in unused.iter() {
+            if let Some(shared_f) = self.node_map.remove(name) {
+                if shared_f.borrow().children.len() > 1 {
+                    return Err(
+                        format!("Failed to inline redundant reference &{}. It has {} children which makes it valid",
+                                name,
+                                shared_f.borrow().children.len()));
+                }
+
+                let ref_origin = shared_f.borrow_mut().children.pop().unwrap();
+                ref_origin.borrow_mut().inline_ref(shared_f);
+
+                let refast = ref_origin.borrow().ast.clone();
+                let mut reforigin_mut = ref_origin.borrow_mut();
+                reforigin_mut.ast = reforigin_mut.resolve_ref(refast, &self.node_map)?;
+            }
+        }
+
+        // and assign new starting nodes
+        for v in self.node_map.values() {
+            if v.borrow().parents.is_empty() {
+                self.root_nodes.push(v.clone());
+            }
+        }
+
+        Ok(())
     }
+
     /// Incapsulates same partial tree nodes in a different formula.
     /// This optimization allows the compiler to initialize stateful
     /// functions only once and later compute them seperately to reuse
     /// their result.
-    fn _find_dup_fns(&mut self, unused: &mut BTreeSet<String>, mut expr: IRNode) -> IRNode {
+    fn _find_dup_fns(&mut self, unused: &mut Vec<String>, mut expr: IRNode) -> IRNode {
+        let fname = Interpreter::mangle_fname(&expr);
         match expr {
             IRNode::Value(_) => expr,
             IRNode::Ref(ref mut rf) => {
@@ -188,14 +214,18 @@ impl Interpreter {
                 }
                 expr
             }
-            IRNode::Function(ref func, ref args) => {
+            IRNode::Function(ref func, ref mut args) => {
                 if func.is_pure() {
                     return expr;
                 }
+                // TODO: add the same optimization for arguments
+                // for arg in args.iter_mut() {
+                //     *arg = self._find_dup_fns(unused, arg.clone());
+                // }
+
                 // mangle formula name and check its presents
-                let fname = Interpreter::mangle_fname(&expr);
                 if let Some(val) = self.node_map.get(&fname) {
-                    unused.remove(&fname);
+                    unused.retain(|el| el != &fname);
                     let mut link = FormulaLink::new(&fname);
                     link.link_with(val);
 
@@ -206,16 +236,22 @@ impl Interpreter {
                         ast: IRNode::Function(func.clone(), args.clone()),
                         children: vec![],
                         parents: vec![],
-                        name: func.name().to_string(),
+                        name: fname.clone(),
                         result: None,
                     };
+
+                    let shared_f = f.make_shared();
+
+                    let mut link = FormulaLink::new(&fname);
+                    link.link_with(&shared_f);
+
                     // and record it
-                    self.node_map
-                        .insert(fname.clone(), Rc::new(RefCell::new(f)));
-                    unused.insert(fname);
+                    self.node_map.insert(fname.clone(), shared_f);
+                    unused.push(fname);
+                    return IRNode::Ref(link);
                 }
 
-                IRNode::Function(func.clone(), args.clone())
+                // IRNode::Function(func.clone(), args.clone())
             }
             IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
                 **lhs = self._find_dup_fns(unused, *lhs.clone());
@@ -231,9 +267,8 @@ impl Interpreter {
 
     /// Inline const result evaluation
     fn opt_const_nodes(&self) {
-        for (name, f) in &self.node_map {
+        for (_, f) in &self.node_map {
             let mut formula = f.borrow_mut();
-            println!("\nCONST INLINE {}: {}", name, formula.ast);
             if let Some(val) = self._opt_const_helper(&formula.ast) {
                 formula.ast = IRNode::Value(val);
             }
@@ -245,7 +280,6 @@ impl Interpreter {
             // NOTE(iy): smelly part. We have to clone values.
             // Its ok for Number/TimeStep/Collection(it only clones ptr) but might be bad for
             // String.
-            // FIXME: Possibly introduce currying at optimization level?
             IRNode::Value(n) => Some((*n).clone()),
             IRNode::Function(fn_obj, args) => {
                 if !fn_obj.is_pure() {
@@ -416,9 +450,6 @@ mod test {
         ctx.register_function("add", Box::new(__add));
         let intrp =
             Interpreter::new(&[("foo", "2+2*2+add(2,4)"), ("bar", "&foo * 2")], ctx).unwrap();
-        for (n, node) in intrp.node_map.iter() {
-            println!("{}: {}", n, node.borrow().ast);
-        }
         let f = intrp.node_map.get("foo").unwrap();
         let result: i64 = intrp.eval(f.clone()).unwrap().into();
         assert_eq!(result, 12);
@@ -426,8 +457,6 @@ mod test {
         let next_from_root = intrp.node_map.get("bar").unwrap().clone();
         assert!(Rc::ptr_eq(&next_from_root, &f.borrow().children[0]));
         assert!(next_from_root.borrow().children.is_empty());
-        // let result: i64 = intrp.compute_pass().unwrap().into();
-        // assert_eq!(result, 16);
     }
 
     #[test]
@@ -486,8 +515,8 @@ mod test {
         ctx.register_function("add", Box::new(__add));
         let intrp = Interpreter::new(
             &[
-                ("foo", "11 + add(1, 1)"),
-                ("bar", "2 * add(1, 1) + add(1, 1)"),
+                ("f1", "11 + add(1, 1)"),
+                ("f2", "2 * add(1, 1) + add(1, 1)"),
             ],
             ctx,
         )

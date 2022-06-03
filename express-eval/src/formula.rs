@@ -4,19 +4,20 @@ use express::types::Type;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::fmt::Debug;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 /// This is a shared primitive. There might be a need of changing
 /// this into some other smart ptr which is fiendly with concurent
 /// execution.
 //pub type SharedFormula = Rc<RefCell<Formula>>;
 pub type SharedFormula = Rc<RefCell<Formula>>;
+pub type RefFormula = Weak<RefCell<Formula>>;
 
 #[derive(PartialEq, Clone)]
 pub struct Formula {
     pub name: String, // GATs!?! WHERE ARE MY GATS!?
     pub ast: IRNode,
-    pub children: Vec<SharedFormula>,
+    pub children: Vec<SharedFormula>, // this should probably be a RefFormula
     pub parents: Vec<SharedFormula>,
     pub result: Option<Type>,
 }
@@ -70,6 +71,47 @@ impl Formula {
     /// Evaluates formula and returns its result as __Option<Type>__
     pub fn eval(&self) -> Option<Type> {
         self.visit_expr(&self.ast)
+    }
+
+    /// inlines reference
+    pub fn inline_ref(&mut self, rf: SharedFormula) {
+        let name = rf.borrow().name.clone();
+        let target_ref = rf.borrow().ast.clone();
+        self.ast = self.__inline_ref(self.ast.clone(), &name, target_ref);
+        // remove reference from parent
+        self.parents.retain(|el| *el != rf);
+    }
+
+    fn __inline_ref(&mut self, mut expr: IRNode, t_name: &str, trgt: IRNode) -> IRNode {
+        match expr {
+            IRNode::Value(_) => expr,
+            IRNode::Ref(ref rf) => {
+                if let IRNode::Function(..) = trgt {
+                    if rf.name == t_name {
+                        return trgt.clone();
+                    } else {
+                        return expr;
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            IRNode::Function(_, ref mut args) => {
+                for arg in args.iter_mut() {
+                    *arg = self.__inline_ref(arg.clone(), t_name, trgt.clone());
+                }
+                expr
+            }
+            IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
+                **rhs = self.__inline_ref(*rhs.clone(), t_name, trgt.clone());
+                **lhs = self.__inline_ref(*lhs.clone(), t_name, trgt.clone());
+                expr
+            }
+            IRNode::UnOp(ref mut lhs, _) => {
+                **lhs = self.__inline_ref(*lhs.clone(), t_name, trgt);
+                expr
+            }
+        }
     }
 
     pub fn resolve_ref(
