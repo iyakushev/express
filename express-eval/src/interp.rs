@@ -170,7 +170,7 @@ impl Interpreter {
     fn remove_redundant_references(&mut self, unused: &[String]) -> Result<(), String> {
         for name in unused.iter() {
             if let Some(shared_f) = self.node_map.remove(name) {
-                if shared_f.borrow().children.len() > 1 {
+                if shared_f.borrow().children.len() != 1 {
                     return Err(
                         format!("Failed to inline redundant reference &{}. It has {} children which makes it valid",
                                 name,
@@ -219,9 +219,9 @@ impl Interpreter {
                     return expr;
                 }
                 // TODO: add the same optimization for arguments
-                // for arg in args.iter_mut() {
-                //     *arg = self._find_dup_fns(unused, arg.clone());
-                // }
+                for arg in args.iter_mut() {
+                    *arg = self._find_dup_fns(unused, arg.clone());
+                }
 
                 // mangle formula name and check its presents
                 if let Some(val) = self.node_map.get(&fname) {
@@ -246,12 +246,16 @@ impl Interpreter {
                     link.link_with(&shared_f);
 
                     // and record it
-                    self.node_map.insert(fname.clone(), shared_f);
+                    self.node_map.insert(fname.clone(), shared_f.clone());
                     unused.push(fname);
+                    let mut shared = shared_f.borrow_mut();
+                    let ast = shared.ast.clone();
+                    // Resolve additional references inside of arguments
+                    shared.ast = shared.resolve_ref(ast, &self.node_map).unwrap();
+                    link_child_with_parents(shared.parents.as_mut_slice(), shared_f.clone());
+
                     return IRNode::Ref(link);
                 }
-
-                // IRNode::Function(func.clone(), args.clone())
             }
             IRNode::BinOp(ref mut lhs, ref mut rhs, _) => {
                 **lhs = self._find_dup_fns(unused, *lhs.clone());
@@ -507,6 +511,14 @@ mod test {
             Context::new(),
         );
         assert!(matches!(intrp, Err(_)));
+    }
+
+    #[test]
+    pub fn expr_with_nested_call() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(&[("foo", "add(1, add(1, add(1, add(1, 1))))")], ctx).unwrap();
+        println!("{:?}", intrp.node_map);
     }
 
     #[test]

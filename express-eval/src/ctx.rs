@@ -230,7 +230,6 @@ mod test {
         ($expr: expr; $($cnst: expr => $cval: expr),*; $($fns: expr => $fval: expr),*) => {
             {
                 let (_, expression) = parse_expression($expr).unwrap();
-                // println!("\nEXPR: {}\n{:?}", $expr, expression);
                 let mut ctx = Context::new();
                 $( ctx.register_constant($cnst, $cval); )*
                 $( ctx.register_function($fns, $fval); )*
