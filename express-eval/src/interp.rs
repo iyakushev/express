@@ -328,21 +328,23 @@ impl Interpreter {
     }
 
     /// calculates a single iteration of the eval loop
-    pub fn compute_pass(&self) -> BTreeMap<String, Option<Type>> {
+    pub fn compute_pass(
+        &self,
+        children_buf: &mut Vec<SharedFormula>,
+    ) -> BTreeMap<String, Option<Type>> {
         let mut active_nodes = self.root_nodes.clone();
-        let mut children = Vec::new();
         let mut results = BTreeMap::new();
         while !active_nodes.is_empty() {
             for node in &active_nodes {
                 let mut formula = node.borrow_mut();
                 formula.eval_inplace();
-                children.extend(formula.children.clone());
+                children_buf.extend(formula.children.clone());
                 if formula.children.is_empty() && !results.contains_key(&formula.name) {
                     results.insert(formula.name.clone(), formula.result.clone());
                 }
             }
-            swap(&mut active_nodes, &mut children);
-            children.clear();
+            swap(&mut active_nodes, children_buf);
+            children_buf.clear();
         }
         results
     }
@@ -562,7 +564,7 @@ mod test {
             ctx,
         )
         .unwrap();
-        let result = intrp.compute_pass();
+        let result = intrp.compute_pass(&mut intrp.root_nodes.clone());
         assert!(!result.is_empty());
         assert_eq!(result["f1"], Some(Type::Number(13.0)));
         assert_eq!(result["f2"], Some(Type::Number(6.0)));
@@ -581,7 +583,7 @@ mod test {
             ctx,
         )
         .unwrap();
-        let result = intrp.compute_pass();
+        let result = intrp.compute_pass(&mut intrp.root_nodes.clone());
         assert!(!result.is_empty());
         assert_eq!(result.len(), 1);
         assert_eq!(result["f3"], Some(Type::Number(19.0)));
