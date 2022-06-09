@@ -73,6 +73,11 @@ impl Formula {
         self.visit_expr(&self.ast)
     }
 
+    /// Stores evaluation result inside .result field
+    pub fn eval_inplace(&mut self) {
+        self.result = self.visit_expr(&self.ast);
+    }
+
     /// inlines reference
     pub fn inline_ref(&mut self, rf: SharedFormula) {
         let name = rf.borrow().name.clone();
@@ -199,7 +204,7 @@ impl Visit<&IRNode> for Formula {
                 let rhs: f64 = self.visit_expr(rhs)?.into();
                 Some(Type::Number(op.unary_eval(rhs)))
             }
-            IRNode::Ref(_) => None,
+            IRNode::Ref(formula) => formula.link().as_deref()?.borrow().result.clone(),
         }
     }
 }

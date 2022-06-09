@@ -6,6 +6,7 @@ use express::types::Type;
 use express::xmacro::use_library;
 use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
+use std::mem::swap;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
@@ -322,16 +323,28 @@ impl Interpreter {
     }
 
     /// Evaluates formula
-    pub fn eval(&self, formula: SharedFormula) -> Option<Type> {
-        self.visit_expr(&formula.borrow().ast)
+    pub fn eval(&self, formula: Ref<Formula>) -> Option<Type> {
+        self.visit_expr(&formula.ast)
     }
 
-    pub fn compute_pass(&mut self) -> Option<Type> {
-        let mut last_result = None;
-        for root in &self.root_nodes {
-            last_result = self.eval(root.clone());
+    /// calculates a single iteration of the eval loop
+    pub fn compute_pass(&self) -> BTreeMap<String, Option<Type>> {
+        let mut active_nodes = self.root_nodes.clone();
+        let mut children = Vec::new();
+        let mut results = BTreeMap::new();
+        while !active_nodes.is_empty() {
+            for node in &active_nodes {
+                let mut formula = node.borrow_mut();
+                formula.eval_inplace();
+                children.extend(formula.children.clone());
+                if formula.children.is_empty() && !results.contains_key(&formula.name) {
+                    results.insert(formula.name.clone(), formula.result.clone());
+                }
+            }
+            swap(&mut active_nodes, &mut children);
+            children.clear();
         }
-        last_result
+        results
     }
 
     pub fn _eval_threaded(&self, _th_num: usize) -> &[Option<Type>] {
@@ -436,7 +449,7 @@ mod test {
         let ctx = test_expr!(; "add" => Box::new(resolve_name!(add)));
         let i = Interpreter::new(&[("foo", "2 + add(12 - 2, add(1, 1))")], ctx).unwrap();
         let f = i.node_map.get("foo").unwrap();
-        let result: f64 = i.eval(f.clone()).unwrap().into();
+        let result: f64 = i.eval(f.borrow()).unwrap().into();
         assert_eq!(result, 14.0);
     }
 
@@ -444,7 +457,7 @@ mod test {
     pub fn expr_with_std_call() {
         let intrp = Interpreter::new(&[("foo", "2+2*2+log(2,4)")], Context::new()).unwrap();
         let f = intrp.node_map.get("foo").unwrap();
-        let result: i64 = intrp.eval(f.clone()).unwrap().into();
+        let result: i64 = intrp.eval(f.borrow()).unwrap().into();
         assert_eq!(result, 8);
     }
 
@@ -455,7 +468,7 @@ mod test {
         let intrp =
             Interpreter::new(&[("foo", "2+2*2+add(2,4)"), ("bar", "&foo * 2")], ctx).unwrap();
         let f = intrp.node_map.get("foo").unwrap();
-        let result: i64 = intrp.eval(f.clone()).unwrap().into();
+        let result: i64 = intrp.eval(f.borrow()).unwrap().into();
         assert_eq!(result, 12);
         assert!(!f.borrow().children.is_empty());
         let next_from_root = intrp.node_map.get("bar").unwrap().clone();
@@ -518,7 +531,8 @@ mod test {
         let mut ctx = Context::new();
         ctx.register_function("add", Box::new(__add));
         let intrp = Interpreter::new(&[("foo", "add(1, add(1, add(1, add(1, 1))))")], ctx).unwrap();
-        println!("{:?}", intrp.node_map);
+        assert!(!intrp.node_map.is_empty());
+        // println!("{:?}", intrp.node_map);
     }
 
     #[test]
@@ -533,9 +547,43 @@ mod test {
             ctx,
         )
         .unwrap();
-        for (name, node) in intrp.node_map.iter() {
-            println!("{}: {}", name, node.borrow().ast);
-        }
         assert_eq!(intrp.node_map.len(), 3);
+    }
+
+    #[test]
+    pub fn test_compute_pass() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(
+            &[
+                ("f1", "11 + add(1, 1)"),
+                ("f2", "2 * add(1, 1) + add(1, 1)"),
+            ],
+            ctx,
+        )
+        .unwrap();
+        let result = intrp.compute_pass();
+        assert!(!result.is_empty());
+        assert_eq!(result["f1"], Some(Type::Number(13.0)));
+        assert_eq!(result["f2"], Some(Type::Number(6.0)));
+    }
+
+    #[test]
+    pub fn test_compute_pass_single_end() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(
+            &[
+                ("f1", "11 + add(1, 1)"),
+                ("f2", "2 * add(1, 1) + add(1, 1)"),
+                ("f3", "&f1 + &f2"),
+            ],
+            ctx,
+        )
+        .unwrap();
+        let result = intrp.compute_pass();
+        assert!(!result.is_empty());
+        assert_eq!(result.len(), 1);
+        assert_eq!(result["f3"], Some(Type::Number(19.0)));
     }
 }
