@@ -48,6 +48,15 @@ impl Debug for Formula {
     }
 }
 
+impl Iterator for Formula {
+    type Item = Type;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.eval_inplace();
+        self.result.clone()
+    }
+}
+
 impl Formula {
     pub fn new(name: &str, expression: &str, eval_ctx: &Context) -> Result<Self, String> {
         let (_, ast) = match parse_expression(expression) {

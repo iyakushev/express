@@ -91,6 +91,51 @@ fn load_prelude(ctx: &mut Context) {
     }
 }
 
+pub struct IntrerpterIt {
+    interpreter: Interpreter, // &'i Interpreter but GATS!!
+    children_buf: Vec<SharedFormula>,
+}
+
+impl Iterator for IntrerpterIt {
+    type Item = BTreeMap<String, Option<Type>>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let result = self.interpreter.compute_pass(&mut self.children_buf);
+        if result.iter().all(|(_, val)| val.is_none()) {
+            None
+        } else {
+            Some(result)
+        }
+    }
+}
+
+impl IntoIterator for Interpreter {
+    type Item = BTreeMap<String, Option<Type>>;
+
+    type IntoIter = IntrerpterIt;
+
+    fn into_iter(self) -> Self::IntoIter {
+        IntrerpterIt {
+            interpreter: self,
+            children_buf: Vec::with_capacity(10),
+        }
+    }
+}
+
+// FOCKING GATS!!!!!!!!!!!!!!!!!!!!!!!
+// impl IntoIterator for Interpreter {
+//     type Item = BTreeMap<String, Option<Type>>;
+//
+//     type IntoIter<'i> = InterpreterIt<'i>;
+//
+//     fn into_iter(self) -> Self::IntoIter {
+//         IntrerpterIt {
+//             interpreter: &self,
+//             children_buf: Vec::with_capacity(10),
+//         }
+//     }
+// }
+
 impl Interpreter {
     /// Creates a new interpreter context from
     pub fn new(formulas: &[NamedExpression], mut context: Context) -> Result<Self, String> {
@@ -587,5 +632,24 @@ mod test {
         assert!(!result.is_empty());
         assert_eq!(result.len(), 1);
         assert_eq!(result["f3"], Some(Type::Number(19.0)));
+    }
+
+    #[test]
+    pub fn test_compute_pass_iterator() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(
+            &[
+                ("f1", "11 + add(1, 1)"),
+                ("f2", "2 * add(1, 1) + add(1, 1)"),
+                ("f3", "&f1 + &f2"),
+            ],
+            ctx,
+        )
+        .unwrap();
+        let mut iit = intrp.into_iter();
+        let result = iit.next().unwrap();
+        assert!(!result.is_empty());
+        // for result in intrp  <-- results in an inf loop, since functions cant return None
     }
 }
