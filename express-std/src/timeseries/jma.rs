@@ -1,4 +1,4 @@
-use express::types::{Callable, Type};
+use express::types::{Callable, InterpreterContext, Type};
 use express::xmacro::runtime_callable;
 
 use super::TimeSeries;

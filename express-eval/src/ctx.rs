@@ -1,24 +1,11 @@
 use crate::ir::{FormulaLink, IRNode};
 use express::{
     lang::ast::{Expression, Literal, Visit},
-    types::{Callable, Function, Type},
+    types::{Callable, Function, InterpreterContext, Type},
 };
 use std::{collections::BTreeMap, rc::Rc};
 
 type Namespace<T> = BTreeMap<String, T>;
-
-/// A public interface for any Interpreter Context
-pub trait InterpreterContext {
-    /// Registers given function in the interpreter context
-    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable>);
-
-    /// Registers given named constant in the interpreter context
-    fn register_constant(&mut self, name: &str, exp_const: f64);
-
-    fn find_function(&self, name: &str) -> Option<&Function>;
-
-    fn find_constant(&self, name: &str) -> Option<f64>;
-}
 
 /// Holds evaluation context information such as functions
 /// that implement `Callable` trait and named constants.

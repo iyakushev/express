@@ -1,8 +1,8 @@
-use crate::ctx::{Context, InterpreterContext};
+use crate::ctx::Context;
 use crate::formula::{Formula, SharedFormula};
 use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
-use express::types::Type;
+use express::types::{InterpreterContext, Type};
 use express::xmacro::use_library;
 use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
@@ -473,8 +473,7 @@ mod test {
     use std::rc::Rc;
 
     use super::*;
-    use crate::ctx::InterpreterContext;
-    use express::types::{Callable, Type};
+    use express::types::{Callable, InterpreterContext, Type};
     use express::xmacro::{resolve_name, runtime_callable};
 
     #[runtime_callable]

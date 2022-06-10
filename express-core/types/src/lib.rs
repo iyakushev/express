@@ -16,7 +16,7 @@ pub enum Type {
     String(String),
     Collection(Arc<[TimeStep]>),
     TimeStep(TimeStep),
-    // Function(Function),
+    None, // Function(Function),
 }
 
 impl Display for Type {
@@ -26,6 +26,7 @@ impl Display for Type {
             Type::String(string) => write!(f, "{}", string),
             Type::Collection(coll) => write!(f, "{:?}", *coll),
             Type::TimeStep(ts) => write!(f, "{}", ts),
+            Type::None => write!(f, "None"),
         }
     }
 }
@@ -42,6 +43,19 @@ impl Display for TimeStep {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "TimeStep<price: {}, time: {}>", self.price, self.time)
     }
+}
+
+/// A public interface for any Interpreter Context
+pub trait InterpreterContext {
+    /// Registers given function in the interpreter context
+    fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable>);
+
+    /// Registers given named constant in the interpreter context
+    fn register_constant(&mut self, name: &str, exp_const: f64);
+
+    fn find_function(&self, name: &str) -> Option<&Function>;
+
+    fn find_constant(&self, name: &str) -> Option<f64>;
 }
 
 /// Represents a general runtime concept of a function.
@@ -70,14 +84,14 @@ pub type Function = Rc<dyn Callable>;
 pub trait Callable {
     /// Execuded once before the main loop with call
     /// Allows struct to initialize its internal state.
-    fn init(&mut self, args: &[Type]);
+    fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext);
 
     // One day we will get Trait const fn
     /// Returns the name of an object.
     fn name(&self) -> &str;
 
     // fn init(args: &[Type]) -> Self;
-    fn call(&self, args: &[Type]) -> Option<Type>;
+    fn call(&mut self, args: &[Type]) -> Option<Type>;
 
     /// Returns a number of arguments the function expects
     fn argcnt(&self) -> usize;

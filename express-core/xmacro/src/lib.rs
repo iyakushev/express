@@ -160,13 +160,12 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
 
         impl Callable for #fn_name {
             #( #attrs )*
-            fn call(&self, args: &[Type]) -> Option<Type> {
+            fn call(&mut self, args: &[Type]) -> Option<Type> {
                 #( #arguments )*
                 #call_ret_stmt
-                // Some({ #( #stmts )* }?.into())
             }
 
-            fn init(&mut self, args: &[Type]) {}
+            fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext) {}
 
             #[inline(always)]
             fn name(&self) -> &str {
