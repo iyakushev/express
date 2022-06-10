@@ -1,3 +1,4 @@
+pub mod common;
 pub mod log;
 pub use log::*;
 

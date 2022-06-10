@@ -82,6 +82,8 @@ fn load_prelude(ctx: &mut Context) {
         functions {
             math::log;
             math::ln;
+            math::common::max;
+            math::common::min;
             timeseries::ema;
             timeseries::jma;
             timeseries::ma;

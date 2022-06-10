@@ -22,6 +22,50 @@ fn mangle_struct_name(name: syn::Ident) -> syn::Ident {
     format_ident!("__{}", name)
 }
 
+fn extract_type_from_option(ty: &syn::Type) -> Option<&syn::Type> {
+    use syn::{GenericArgument, Path, PathArguments, PathSegment};
+
+    fn extract_type_path(ty: &syn::Type) -> Option<&Path> {
+        match *ty {
+            syn::Type::Path(ref typepath) if typepath.qself.is_none() => Some(&typepath.path),
+            _ => None,
+        }
+    }
+
+    // TODO store (with lazy static) the vec of string
+    // TODO maybe optimization, reverse the order of segments
+    fn extract_option_segment(path: &Path) -> Option<&PathSegment> {
+        let idents_of_path = path
+            .segments
+            .iter()
+            .into_iter()
+            .fold(String::new(), |mut acc, v| {
+                acc.push_str(&v.ident.to_string());
+                acc.push('|');
+                acc
+            });
+        vec!["Option|", "std|option|Option|", "core|option|Option|"]
+            .into_iter()
+            .find(|s| &idents_of_path == *s)
+            .and_then(|_| path.segments.last())
+    }
+
+    extract_type_path(ty)
+        .and_then(|path| extract_option_segment(path))
+        .and_then(|path_seg| {
+            let type_params = &path_seg.arguments;
+            // It should have only on angle-bracketed param ("<String>"):
+            match *type_params {
+                PathArguments::AngleBracketed(ref params) => params.args.first(),
+                _ => None,
+            }
+        })
+        .and_then(|generic_arg| match *generic_arg {
+            GenericArgument::Type(ref ty) => Some(ty),
+            _ => None,
+        })
+}
+
 /// This is a special macro that qualifies given function
 /// as a runtime acceptable. Note that function can't
 /// have any internal mutable state.
@@ -87,16 +131,24 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
     let fn_name = mangle_struct_name(function.sig.ident.clone());
     let fn_src_name = function.sig.ident.clone();
     let attrs = function.attrs.clone();
-    if let ReturnType::Default = function.sig.output {
+    let result_type = if let ReturnType::Type(_, ref ret_t) = function.sig.output {
+        extract_type_from_option(&*ret_t)
+    } else {
         return syn::Error::new(
             function.sig.output.span(),
             "Function must be explicit in its return type",
         )
         .to_compile_error()
         .into();
-    }
-
+    };
     let stmts = function.block.stmts.clone();
+
+    let call_ret_stmt = if let Some(_) = result_type {
+        quote! { Some( {#( #stmts )*}?.into() ) }
+    } else {
+        quote! { Some( {#( #stmts )*}.into() ) }
+    };
+
     quote! {
         // use express::types::{Callable, Type};
 
@@ -110,7 +162,8 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
             #( #attrs )*
             fn call(&self, args: &[Type]) -> Option<Type> {
                 #( #arguments )*
-                Some({ #( #stmts )* }?.into())
+                #call_ret_stmt
+                // Some({ #( #stmts )* }?.into())
             }
 
             fn init(&mut self, args: &[Type]) {}
