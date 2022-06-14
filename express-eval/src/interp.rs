@@ -10,18 +10,12 @@ use std::mem::swap;
 
 type NamedExpression<'e> = (&'e str, &'e str);
 
-/// This is the return type of any formula computation.
-/// While formulas can handle any type from `express::types::Type`
-/// as either input or output types, result of the final expression
-/// node must be of type `IReturn`
-//type IReturn = f64;
-
 // NOTE(iy):
 // On Interpreter optimizations
 // |[x] Resolve references (&name)
 // |[x] Build DAG with dfs check
 // |[x] Inline reference AST if it is reduced to IRNode::Value
-// |[ ] Init stateful functions (?)
+// |[x] Init stateful functions (?)
 // |[+-] Find common partial AST inside each expression
 // |[x]     => promote it to a new formula
 // |[x]     => insert references to the new formula inplace
@@ -84,6 +78,7 @@ fn load_prelude(ctx: &mut Context) {
             math::ln;
             math::common::max;
             math::common::min;
+            func::accumulate;
             timeseries::ema;
             timeseries::jma;
             timeseries::ma;
@@ -334,15 +329,18 @@ impl Interpreter {
             // String.
             IRNode::Value(n) => Some((*n).clone()),
             IRNode::Function(fn_obj, args) => {
-                if !fn_obj.is_pure() {
-                    return None;
-                }
                 let mut resolved_args = Vec::with_capacity(args.len());
 
                 // resolves arguments
                 for arg in args {
                     resolved_args.push(self._opt_const_helper(arg)?);
                 }
+                if !fn_obj.is_pure() {
+                    // let t = fn_obj.clone_rc().borrow();
+                    //let c: &dyn Callable = &Callable::init(&resolved_args[..], &self.ctx);
+                    return None;
+                }
+
                 Some(fn_obj.call(resolved_args.as_slice())?.into())
             }
             IRNode::BinOp(lhs, rhs, op) => {

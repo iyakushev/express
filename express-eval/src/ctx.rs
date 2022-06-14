@@ -47,13 +47,6 @@ impl InterpreterContext for Context {
     }
 }
 
-/// Initializes object
-// fn init_object(f: Rc<dyn Callable>, args: &[Type]) {
-//     if f.should_be_created() {
-//         f.init(args)
-//     }
-// }
-
 /// Simplifies ast and produces new IRNode
 fn reduce_ast_node(f: Function, arguments: Vec<IRNode>) -> Result<IRNode, String> {
     if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {

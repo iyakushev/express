@@ -4,16 +4,20 @@ use quote::{format_ident, quote};
 use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
 use uselib::Library;
 
-fn parse_purity_attr(attr: TokenStream) -> Result<bool, syn::Error> {
+fn parse_flag_attr(attr: TokenStream, flags: [&str; 1]) -> Result<bool, syn::Error> {
     match syn::parse::<syn::Ident>(attr) {
-        Ok(tt) => match tt.to_string().as_str() {
-            "pure" => Ok(true),
-            "" => Ok(false),
-            _ => Err(syn::Error::new(
-                tt.span(),
-                "Macro accepts only one attribute 'pure'",
-            )),
-        },
+        Ok(tt) => {
+            if !flags.contains(&tt.to_string().as_str()) && tt != "" {
+                Err(syn::Error::new(
+                    tt.span(),
+                    format!("Macro accepts only: {:?}", flags),
+                ))
+            } else if tt != "" {
+                Ok(true)
+            } else {
+                Ok(false)
+            }
+        }
         Err(_) => Ok(false),
     }
 }
@@ -95,10 +99,15 @@ fn extract_type_from_option(ty: &syn::Type) -> Option<&syn::Type> {
 /// at runtime before that.
 #[proc_macro_attribute]
 pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
-    let is_pure = match parse_purity_attr(attr) {
+    const FLAGS: [&str; 1] = ["pure"];
+    let is_pure = match parse_flag_attr(attr, FLAGS) {
         Ok(pure) => pure,
         Err(e) => return e.to_compile_error().into(),
     };
+    parse_function(item, is_pure)
+}
+
+fn parse_function(item: TokenStream, is_pure: bool) -> TokenStream {
     let function: syn::ItemFn = syn::parse_macro_input!(item);
     let mut arguments: Vec<_> = Vec::new();
     let mut argcnt: usize = 0;
@@ -165,7 +174,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #call_ret_stmt
             }
 
-            fn init(args: &[Type], ctx: &dyn InterpreterContext) -> Self { Self {} }
+            fn init(&self, args: &[Type], ctx: &dyn InterpreterContext) -> Self { Self {} }
 
             #[inline(always)]
             fn name(&self) -> &'static str {

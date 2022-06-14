@@ -1,19 +1,24 @@
-use express::types::{Callable, Type};
+use express::{
+    types::{Callable, Function, InterpreterContext, Type},
+    xmacro::runtime_callable,
+};
 
-struct Accumulate {
+/// This is how **you define a constructor**:
+/// Note that it is also handy to get a gist of function signature.
+/// This signature will be employed in the real `call` method as `args: &[Type]`.
+/// You can think of it as currying. But on each call you recieve all arguments.
+#[runtime_callable(pure)]
+pub fn accumulate(init: f64, _f: Function) -> Accumulate {
+    Accumulate { acc: init }
+}
+
+/// The real function state
+pub struct Accumulate {
     acc: f64,
 }
 
-impl Default for Accumulate {
-    fn default() -> Self {
-        Self {
-            acc: Default::default(),
-        }
-    }
-}
-
 impl Callable for Accumulate {
-    fn init(args: &[Type], _: &dyn express::types::InterpreterContext) -> Self {
+    fn init(&self, args: &[Type], _: &dyn express::types::InterpreterContext) -> Self {
         Self {
             acc: args[0].clone().into(),
         }

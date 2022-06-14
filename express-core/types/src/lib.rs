@@ -134,7 +134,7 @@ impl PartialEq for Function {
 pub trait Callable: CallableWrapper {
     /// Execuded once before the main loop with call
     /// Allows struct to initialize its internal state.
-    fn init(args: &[Type], ctx: &dyn InterpreterContext) -> Self
+    fn init(&self, args: &[Type], ctx: &dyn InterpreterContext) -> Self
     where
         Self: Sized;
 
@@ -142,7 +142,6 @@ pub trait Callable: CallableWrapper {
     /// Returns the name of an object.
     fn name(&self) -> &'static str;
 
-    // fn init(args: &[Type]) -> Self;
     fn call(&mut self, args: &[Type]) -> Option<Type>;
 
     /// Returns a number of arguments the function expects
@@ -194,6 +193,21 @@ bijection!(Type::String => String);
 bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
 bijection!(Type::Collection => Arc<[TimeStep]>);
+
+impl<T: 'static + Callable> From<T> for Type {
+    fn from(c: T) -> Self {
+        Type::Function(Function::from_callable(Box::new(c)))
+    }
+}
+
+impl From<&Type> for Function {
+    fn from(val: &Type) -> Self {
+        match val {
+            Type::Function(f) => f.clone(),
+            _ => panic!("Recieved unrecognized type"),
+        }
+    }
+}
 
 impl From<&Type> for f64 {
     fn from(val: &Type) -> Self {
