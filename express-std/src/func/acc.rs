@@ -1,5 +1,5 @@
 use express::{
-    types::{Callable, Function, InterpreterContext, Type},
+    types::{Callable, InterpreterContext, Type},
     xmacro::runtime_callable,
 };
 
@@ -7,8 +7,9 @@ use express::{
 /// Note that it is also handy to get a gist of function signature.
 /// This signature will be employed in the real `call` method as `args: &[Type]`.
 /// You can think of it as currying. But on each call you recieve all arguments.
+/// Like yeah, currying in compile time is object construction. How. Cool. Is. That?!
 #[runtime_callable(pure)]
-pub fn accumulate(init: f64, _f: Function) -> Accumulate {
+pub fn acc(init: f64, _f: &Type) -> Accumulate {
     Accumulate { acc: init }
 }
 

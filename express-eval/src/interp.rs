@@ -78,7 +78,7 @@ fn load_prelude(ctx: &mut Context) {
             math::ln;
             math::common::max;
             math::common::min;
-            func::accumulate;
+            func::acc;
             timeseries::ema;
             timeseries::jma;
             timeseries::ma;
@@ -172,6 +172,7 @@ impl Interpreter {
             let fnode = self.node_map.get(&name).unwrap().clone();
             let mut fnode_inner = fnode.borrow_mut();
 
+            println!("BEFORE: {:?}", fnode_inner.ast);
             // This would ensure that previous formula functions gets referenced
             self.manage_references(&mut fnode_inner, &mut unused)?;
 
@@ -184,7 +185,7 @@ impl Interpreter {
 
         self.remove_redundant_references(unused.as_slice())?;
         self.assert_dag_has_no_cycles()?;
-        self.opt_const_nodes();
+        self.opt_const_eval();
 
         if self.root_nodes.is_empty() {
             Err(format!("Root nodes are empty. Execution graph is invalid"))
@@ -313,46 +314,56 @@ impl Interpreter {
     }
 
     /// Inline const result evaluation
-    fn opt_const_nodes(&self) {
+    fn opt_const_eval(&self) {
         for (_, f) in &self.node_map {
             let mut formula = f.borrow_mut();
-            if let Some(val) = self._opt_const_helper(&formula.ast) {
-                formula.ast = IRNode::Value(val);
+            println!("BEFORE: {:?}", formula.ast);
+            if let Some(val) = self._opt_const_eval_walk(&formula.ast) {
+                println!("OPTIMIZED: {val:?}");
+                formula.ast = val;
             }
         }
     }
 
-    fn _opt_const_helper(&self, expr: &IRNode) -> Option<Type> {
+    fn _opt_const_eval_walk(&self, expr: &IRNode) -> Option<IRNode> {
         match expr {
             // NOTE(iy): smelly part. We have to clone values.
             // Its ok for Number/TimeStep/Collection(it only clones ptr) but might be bad for
             // String.
-            IRNode::Value(n) => Some((*n).clone()),
+            IRNode::Value(n) => Some(expr.clone()),
             IRNode::Function(fn_obj, args) => {
-                let mut resolved_args = Vec::with_capacity(args.len());
-
-                // resolves arguments
-                for arg in args {
-                    resolved_args.push(self._opt_const_helper(arg)?);
-                }
                 if !fn_obj.is_pure() {
-                    // let t = fn_obj.clone_rc().borrow();
-                    //let c: &dyn Callable = &Callable::init(&resolved_args[..], &self.ctx);
                     return None;
                 }
 
-                Some(fn_obj.call(resolved_args.as_slice())?.into())
+                let mut resolved_args = Vec::with_capacity(args.len());
+                let mut collected = Vec::with_capacity(args.len());
+
+                // resolves arguments
+                for arg in args {
+                    let arg = self._opt_const_eval_walk(arg)?;
+                    collected.push(arg.clone());
+                    resolved_args.push(arg.into());
+                }
+
+                match fn_obj.call(resolved_args.as_slice())? {
+                    Type::Function(f) => Some(IRNode::Function(f, collected)),
+                    r @ _ => Some(IRNode::Value(r.into())),
+                }
             }
             IRNode::BinOp(lhs, rhs, op) => {
-                let lhs: f64 = self._opt_const_helper(lhs)?.into();
-                let rhs: f64 = self._opt_const_helper(rhs)?.into();
-                Some(Type::Number(op.eval(lhs, rhs)))
+                let lhs: f64 = self._opt_const_eval_walk(lhs)?.into();
+                let rhs: f64 = self._opt_const_eval_walk(rhs)?.into();
+                Some(IRNode::Value(Type::Number(op.eval(lhs, rhs))))
             }
             IRNode::UnOp(rhs, op) => {
-                let rhs: f64 = self._opt_const_helper(rhs)?.into();
-                Some(Type::Number(op.unary_eval(rhs)))
+                let rhs: f64 = self._opt_const_eval_walk(rhs)?.into();
+                Some(IRNode::Value(Type::Number(op.unary_eval(rhs))))
             }
-            IRNode::Ref(formula) => formula.link().as_deref()?.borrow().result.clone(),
+            IRNode::Ref(formula) => {
+                let result = formula.link().as_deref()?.borrow().result.as_ref()?.clone();
+                Some(IRNode::Value(result.into()))
+            }
         }
     }
 
@@ -468,6 +479,7 @@ impl Visit<&IRNode> for Interpreter {
 #[cfg(test)]
 mod test {
 
+    use std::borrow;
     use std::rc::Rc;
 
     use super::*;
@@ -653,5 +665,26 @@ mod test {
         let result = iit.next().unwrap();
         assert!(!result.is_empty());
         // for result in intrp  <-- results in an inf loop, since functions cant return None
+    }
+
+    #[test]
+    pub fn test_state_fn() {
+        let mut ctx = Context::new();
+        ctx.register_function("add", Box::new(__add));
+        let intrp = Interpreter::new(&[("f1", "acc(0, 2*2)")], ctx).unwrap();
+        let f = intrp.root_nodes[0].clone();
+        let r0 = intrp.eval(f.borrow()).unwrap();
+        let r1 = intrp.eval(f.borrow()).unwrap();
+        let r2 = intrp.eval(f.borrow()).unwrap();
+        println!("\n\nCAPTURE");
+        println!("{:?}", f.borrow());
+        println!("{}", f.borrow().ast);
+        println!("{}", r0);
+        println!("{}", r1);
+        println!("{}", r2);
+
+        // assert_eq!(r0, 4.0);
+        // assert_eq!(r1, 8.0);
+        // assert_eq!(r2, 12.0);
     }
 }

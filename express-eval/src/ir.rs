@@ -64,7 +64,7 @@ impl PartialEq for IRNode {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Value(l0), Self::Value(r0)) => l0 == r0,
-            (Self::Function(_, l1), Self::Function(_, r1)) => l1 == r1,
+            (Self::Function(f1, l1), Self::Function(f2, r1)) => l1 == r1 && f1 == f2,
             (Self::BinOp(l0, l1, l2), Self::BinOp(r0, r1, r2)) => l0 == r0 && l1 == r1 && l2 == r2,
             (Self::UnOp(l0, l1), Self::UnOp(r0, r1)) => l0 == r0 && l1 == r1,
             (Self::Ref(l), Self::Ref(r)) => l == r,
@@ -106,6 +106,21 @@ impl Display for IRNode {
             }
             IRNode::BinOp(lhs, rhs, op) => write!(f, "{}{}{}", lhs, op, rhs),
             IRNode::UnOp(lhs, op) => write!(f, "{}{}", op, lhs),
+        }
+    }
+}
+
+impl From<f64> for IRNode {
+    fn from(f: f64) -> Self {
+        IRNode::Value(Type::Number(f))
+    }
+}
+
+impl From<IRNode> for f64 {
+    fn from(f: IRNode) -> Self {
+        match f {
+            IRNode::Value(Type::Number(val)) => val,
+            _ => panic!("recieved unrecognized type"),
         }
     }
 }

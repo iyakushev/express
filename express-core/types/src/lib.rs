@@ -99,20 +99,20 @@ impl Function {
         self.inner.borrow().argcnt()
     }
 
-    pub fn is_pure(&self) -> bool {
-        self.inner.borrow().is_pure()
+    pub fn is_pure(&self) -> CallableType {
+        self.inner.borrow().of_type()
     }
 }
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(...)", self.name())
+        write!(f, "fn {}(...)", self.name())
     }
 }
 
 impl Debug for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}(...)", self.name())
+        write!(f, "fn {}(...)", self.name())
     }
 }
 
@@ -150,11 +150,12 @@ pub trait Callable: CallableWrapper {
     /// Signifies if the Callable object stands for a pure function.
     /// If all of its arguments are Const as well (or pure functions with const args).
     /// Then the call can be performed at the graph "build time" rather than runtime.
-    fn is_pure(&self) -> bool {
-        false
+    fn of_type(&self) -> CallableType {
+        CallableType::Stateful
     }
 }
 
+/// Helps to convert a Boxed Callable object to an Rc
 pub trait CallableWrapper {
     fn wrap_in_refcell(self: Box<Self>) -> Rc<RefCell<dyn Callable>>;
 }
@@ -163,6 +164,16 @@ impl<T: Callable + 'static> CallableWrapper for T {
     fn wrap_in_refcell(self: Box<Self>) -> Rc<RefCell<dyn Callable>> {
         Rc::new(RefCell::new(*self))
     }
+}
+
+/// Marks callable object type.
+/// * Stateful - functions that may carry inner mutable state. They are the reason `call(...)` accepts `&mut self`.
+/// * Const - functions that will be evaluated at _"compile time"_. No mater what.
+/// * Pure - trivial functions without side effects that may be inlined at _"compile time"_
+pub enum CallableType {
+    Stateful,
+    Const,
+    Pure,
 }
 
 /// Automatically implements bijection conversion traits
@@ -197,6 +208,12 @@ bijection!(Type::Collection => Arc<[TimeStep]>);
 impl<T: 'static + Callable> From<T> for Type {
     fn from(c: T) -> Self {
         Type::Function(Function::from_callable(Box::new(c)))
+    }
+}
+
+impl From<&Type> for Type {
+    fn from(val: &Type) -> Self {
+        val.clone()
     }
 }
 

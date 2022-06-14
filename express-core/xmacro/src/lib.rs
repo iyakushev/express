@@ -1,24 +1,22 @@
 mod uselib;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
+use types::CallableType;
 use uselib::Library;
 
-fn parse_flag_attr(attr: TokenStream, flags: [&str; 1]) -> Result<bool, syn::Error> {
+fn parse_flag_attr(attr: TokenStream) -> Result<CallableType, syn::Error> {
     match syn::parse::<syn::Ident>(attr) {
-        Ok(tt) => {
-            if !flags.contains(&tt.to_string().as_str()) && tt != "" {
-                Err(syn::Error::new(
-                    tt.span(),
-                    format!("Macro accepts only: {:?}", flags),
-                ))
-            } else if tt != "" {
-                Ok(true)
-            } else {
-                Ok(false)
-            }
-        }
-        Err(_) => Ok(false),
+        Ok(tt) => match tt.to_string().as_str() {
+            "pure" => Ok(CallableType::Pure),
+            "const" => Ok(CallableType::Const),
+            "" => Ok(CallableType::Stateful),
+            _ => Err(syn::Error::new(
+                tt.span(),
+                format!("Macro accepts only: [pure, const]"),
+            )),
+        },
+        Err(_) => Ok(CallableType::Stateful),
     }
 }
 
@@ -99,15 +97,14 @@ fn extract_type_from_option(ty: &syn::Type) -> Option<&syn::Type> {
 /// at runtime before that.
 #[proc_macro_attribute]
 pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
-    const FLAGS: [&str; 1] = ["pure"];
-    let is_pure = match parse_flag_attr(attr, FLAGS) {
+    let mode = match parse_flag_attr(attr) {
         Ok(pure) => pure,
         Err(e) => return e.to_compile_error().into(),
     };
-    parse_function(item, is_pure)
+    parse_function(item, mode)
 }
 
-fn parse_function(item: TokenStream, is_pure: bool) -> TokenStream {
+fn parse_function(item: TokenStream, oftype: CallableType) -> TokenStream {
     let function: syn::ItemFn = syn::parse_macro_input!(item);
     let mut arguments: Vec<_> = Vec::new();
     let mut argcnt: usize = 0;
@@ -187,9 +184,10 @@ fn parse_function(item: TokenStream, is_pure: bool) -> TokenStream {
             }
 
             #[inline(always)]
-            fn is_pure(&self) -> bool {
-                #is_pure
+            fn of_type(&self) -> CallableType {
+                #(oftype)
             }
+
         }
     }
     .into()
