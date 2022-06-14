@@ -1,4 +1,5 @@
 use std::{
+    cell::RefCell,
     fmt::{Debug, Display},
     rc::Rc,
     sync::Arc,
@@ -16,7 +17,8 @@ pub enum Type {
     String(String),
     Collection(Arc<[TimeStep]>),
     TimeStep(TimeStep),
-    None, // Function(Function),
+    Function(Function),
+    None,
 }
 
 impl Display for Type {
@@ -26,6 +28,7 @@ impl Display for Type {
             Type::String(string) => write!(f, "{}", string),
             Type::Collection(coll) => write!(f, "{:?}", *coll),
             Type::TimeStep(ts) => write!(f, "{}", ts),
+            Type::Function(func) => write!(f, "{}", func),
             Type::None => write!(f, "None"),
         }
     }
@@ -64,13 +67,70 @@ pub trait InterpreterContext {
 /// not contain any side effects. This is guranteed by the
 /// `Callable` trait contract whitch takes only immutable
 /// reference to self.
-pub type Function = Rc<dyn Callable>;
+pub type SharedFunction = Rc<RefCell<dyn Callable>>;
 
-// impl Debug for Function {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "Function")
-//     }
-// }
+#[derive(Clone)]
+pub struct Function {
+    inner: SharedFunction,
+}
+
+impl Function {
+    pub fn from_callable(call_obj: Box<dyn Callable>) -> Self {
+        Self {
+            inner: call_obj.wrap_in_refcell(),
+        }
+    }
+
+    pub fn clone_rc(&self) -> SharedFunction {
+        self.inner.clone()
+    }
+
+    /// Uses interior mutability pattern to dispatch a fn call
+    pub fn call_inner(&self, args: &[Type]) -> Option<Type> {
+        self.inner.borrow_mut().call(args)
+    }
+}
+
+impl Callable for Function {
+    fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext) {
+        self.inner.borrow_mut().init(args, ctx);
+    }
+
+    fn name(&self) -> &'static str {
+        let name = self.inner.borrow().name().clone();
+        name
+    }
+
+    fn call(&mut self, args: &[Type]) -> Option<Type> {
+        self.inner.borrow_mut().call(args)
+    }
+
+    fn argcnt(&self) -> usize {
+        self.inner.borrow().argcnt()
+    }
+
+    fn is_pure(&self) -> bool {
+        self.inner.borrow().is_pure()
+    }
+}
+
+impl Display for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(...)", self.name())
+    }
+}
+
+impl Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}(...)", self.name())
+    }
+}
+
+impl PartialEq for Function {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.inner, &other.inner) && self.name() == other.name()
+    }
+}
 
 /// This is a public Callable trait which lets
 /// any function be runable inside.
@@ -81,14 +141,14 @@ pub type Function = Rc<dyn Callable>;
 /// Calling `call` method directly on #[runtime_callable] objects is unsafe
 /// since they access arguments with `get_unchecked(pos)`.
 /// The arg count check is performed during AST creation.
-pub trait Callable {
+pub trait Callable: CallableWrapper {
     /// Execuded once before the main loop with call
     /// Allows struct to initialize its internal state.
     fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext);
 
     // One day we will get Trait const fn
     /// Returns the name of an object.
-    fn name(&self) -> &str;
+    fn name(&self) -> &'static str;
 
     // fn init(args: &[Type]) -> Self;
     fn call(&mut self, args: &[Type]) -> Option<Type>;
@@ -101,6 +161,16 @@ pub trait Callable {
     /// Then the call can be performed at the graph "build time" rather than runtime.
     fn is_pure(&self) -> bool {
         false
+    }
+}
+
+pub trait CallableWrapper {
+    fn wrap_in_refcell(self: Box<Self>) -> Rc<RefCell<dyn Callable>>;
+}
+
+impl<T: Callable + 'static> CallableWrapper for T {
+    fn wrap_in_refcell(self: Box<Self>) -> Rc<RefCell<dyn Callable>> {
+        Rc::new(RefCell::new(*self))
     }
 }
 
@@ -129,7 +199,7 @@ macro_rules! bijection {
 
 bijection!(Type::Number => f64);
 bijection!(Type::String => String);
-// bijection!(Type::Function => Function);
+bijection!(Type::Function => Function);
 bijection!(Type::TimeStep => TimeStep);
 bijection!(Type::Collection => Arc<[TimeStep]>);
 

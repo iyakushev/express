@@ -1,7 +1,7 @@
 use crate::formula::SharedFormula;
 use express::{
     lang::ast::Operation,
-    types::{Callable, Type},
+    types::{Callable, Function as Func, Type},
 };
 use std::{
     fmt::{Debug, Display},
@@ -55,7 +55,7 @@ pub enum IRNode {
     // NOTE(iy): Pointer primitive requires changes when adopting
     // a parallel execution model (Something like RWLock?).
     Ref(FormulaLink),
-    Function(Rc<dyn Callable>, Vec<IRNode>),
+    Function(Func, Vec<IRNode>),
     BinOp(Box<IRNode>, Box<IRNode>, Operation),
     UnOp(Box<IRNode>, Operation),
 }

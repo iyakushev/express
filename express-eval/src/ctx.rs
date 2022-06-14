@@ -3,7 +3,7 @@ use express::{
     lang::ast::{Expression, Literal, Visit},
     types::{Callable, Function, InterpreterContext, Type},
 };
-use std::{collections::BTreeMap, rc::Rc};
+use std::collections::BTreeMap;
 
 type Namespace<T> = BTreeMap<String, T>;
 
@@ -29,7 +29,8 @@ impl Context {
 impl InterpreterContext for Context {
     /// Registers given function in the interpreter context
     fn register_function(&mut self, name: &str, exp_fn: Box<dyn Callable>) {
-        self.ns_fn.insert(name.to_string(), Rc::from(exp_fn));
+        self.ns_fn
+            .insert(name.to_string(), Function::from_callable(exp_fn));
     }
 
     /// Registers given named constant in the interpreter context
@@ -54,7 +55,7 @@ impl InterpreterContext for Context {
 // }
 
 /// Simplifies ast and produces new IRNode
-fn reduce_ast_node(f: Rc<dyn Callable>, arguments: Vec<IRNode>) -> Result<IRNode, String> {
+fn reduce_ast_node(f: Function, arguments: Vec<IRNode>) -> Result<IRNode, String> {
     if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {
         return Ok(IRNode::Function(f.clone(), arguments));
     } else {
@@ -65,7 +66,7 @@ fn reduce_ast_node(f: Rc<dyn Callable>, arguments: Vec<IRNode>) -> Result<IRNode
                 _ => unreachable!(),
             })
             .collect();
-        if let Some(result) = f.call(&*values) {
+        if let Some(result) = f.call_inner(&*values) {
             return Ok(IRNode::Value(result));
         }
         return Err(format!("Pure function with const arguments returned None"));
@@ -185,8 +186,8 @@ mod test {
     use super::*;
     use express::lang::ast::Operation;
     use express::lang::parser::parse_expression;
+    use express::types::{Callable, Function};
     use express::xmacro::runtime_callable;
-    use std::rc::Rc;
 
     #[runtime_callable]
     fn add_answer(val: f64) -> Option<f64> {
@@ -272,7 +273,7 @@ mod test {
             result,
             IRNode::UnOp(
                 Box::new(IRNode::Function(
-                    Rc::new(__add_answer),
+                    Function::from_callable(Box::new(__add_answer)),
                     vec![IRNode::Value(Type::Number(1.0))]
                 )),
                 Operation::Minus,
@@ -289,7 +290,7 @@ mod test {
                 Box::new(IRNode::BinOp(
                     Box::new(IRNode::UnOp(
                         Box::new(IRNode::Function(
-                            Rc::new(__add_answer),
+                            Function::from_callable(Box::new(__add_answer)),
                             vec![IRNode::Value(Type::Number(1.0))]
                         )),
                         Operation::Minus
@@ -315,7 +316,7 @@ mod test {
         assert_eq!(
             result,
             IRNode::Function(
-                Rc::new(__add_answer),
+                Function::from_callable(Box::new(__add_answer)),
                 vec![IRNode::Value(Type::Number(16.0))]
             )
         );
@@ -347,7 +348,7 @@ mod test {
         assert_eq!(
             result,
             IRNode::Function(
-                Rc::new(__take_str),
+                Function::from_callable(Box::new(__take_str)),
                 vec![IRNode::Ref(FormulaLink::new("foo"))]
             )
         )

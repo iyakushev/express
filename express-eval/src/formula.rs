@@ -202,7 +202,7 @@ impl Visit<&IRNode> for Formula {
                 for arg in args {
                     resolved_args.push(self.visit_expr(arg)?);
                 }
-                Some(fn_obj.call(resolved_args.as_slice())?.into())
+                Some(fn_obj.call_inner(resolved_args.as_slice())?.into())
             }
             IRNode::BinOp(lhs, rhs, op) => {
                 let lhs: f64 = self.visit_expr(lhs)?.into();
