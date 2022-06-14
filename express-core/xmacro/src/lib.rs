@@ -165,7 +165,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
                 #call_ret_stmt
             }
 
-            fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext) {}
+            fn init(args: &[Type], ctx: &dyn InterpreterContext) -> Self { Self {} }
 
             #[inline(always)]
             fn name(&self) -> &'static str {

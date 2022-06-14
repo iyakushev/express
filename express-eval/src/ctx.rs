@@ -66,7 +66,7 @@ fn reduce_ast_node(f: Function, arguments: Vec<IRNode>) -> Result<IRNode, String
                 _ => unreachable!(),
             })
             .collect();
-        if let Some(result) = f.call_inner(&*values) {
+        if let Some(result) = f.call(&*values) {
             return Ok(IRNode::Value(result));
         }
         return Err(format!("Pure function with const arguments returned None"));

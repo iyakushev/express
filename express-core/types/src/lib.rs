@@ -86,30 +86,20 @@ impl Function {
     }
 
     /// Uses interior mutability pattern to dispatch a fn call
-    pub fn call_inner(&self, args: &[Type]) -> Option<Type> {
+    pub fn call(&self, args: &[Type]) -> Option<Type> {
         self.inner.borrow_mut().call(args)
     }
-}
 
-impl Callable for Function {
-    fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext) {
-        self.inner.borrow_mut().init(args, ctx);
-    }
-
-    fn name(&self) -> &'static str {
+    pub fn name(&self) -> &'static str {
         let name = self.inner.borrow().name().clone();
         name
     }
 
-    fn call(&mut self, args: &[Type]) -> Option<Type> {
-        self.inner.borrow_mut().call(args)
-    }
-
-    fn argcnt(&self) -> usize {
+    pub fn argcnt(&self) -> usize {
         self.inner.borrow().argcnt()
     }
 
-    fn is_pure(&self) -> bool {
+    pub fn is_pure(&self) -> bool {
         self.inner.borrow().is_pure()
     }
 }
@@ -144,7 +134,9 @@ impl PartialEq for Function {
 pub trait Callable: CallableWrapper {
     /// Execuded once before the main loop with call
     /// Allows struct to initialize its internal state.
-    fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext);
+    fn init(args: &[Type], ctx: &dyn InterpreterContext) -> Self
+    where
+        Self: Sized;
 
     // One day we will get Trait const fn
     /// Returns the name of an object.

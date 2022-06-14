@@ -41,7 +41,7 @@ mod test {
             f64::from(
                 ctx.find_function("ln")
                     .unwrap()
-                    .call_inner(&[Type::Number(2.0)])
+                    .call(&[Type::Number(2.0)])
                     .unwrap()
             ),
             express_std::math::ln(2.0).unwrap()

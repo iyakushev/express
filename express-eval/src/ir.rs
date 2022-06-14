@@ -1,7 +1,7 @@
 use crate::formula::SharedFormula;
 use express::{
     lang::ast::Operation,
-    types::{Callable, Function as Func, Type},
+    types::{Function as Func, Type},
 };
 use std::{
     fmt::{Debug, Display},

@@ -2,7 +2,7 @@ use crate::ctx::Context;
 use crate::formula::{Formula, SharedFormula};
 use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
-use express::types::{Callable, InterpreterContext, Type};
+use express::types::{InterpreterContext, Type};
 use express::xmacro::use_library;
 use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
@@ -343,7 +343,7 @@ impl Interpreter {
                 for arg in args {
                     resolved_args.push(self._opt_const_helper(arg)?);
                 }
-                Some(fn_obj.call_inner(resolved_args.as_slice())?.into())
+                Some(fn_obj.call(resolved_args.as_slice())?.into())
             }
             IRNode::BinOp(lhs, rhs, op) => {
                 let lhs: f64 = self._opt_const_helper(lhs)?.into();
@@ -451,7 +451,7 @@ impl Visit<&IRNode> for Interpreter {
                 for arg in args {
                     resolved_args.push(self.visit_expr(arg)?);
                 }
-                Some(fn_obj.call_inner(resolved_args.as_slice())?.into())
+                Some(fn_obj.call(resolved_args.as_slice())?.into())
             }
             IRNode::BinOp(lhs, rhs, op) => {
                 let lhs: f64 = self.visit_expr(lhs)?.into();

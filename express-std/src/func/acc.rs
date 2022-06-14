@@ -13,8 +13,10 @@ impl Default for Accumulate {
 }
 
 impl Callable for Accumulate {
-    fn init(&mut self, args: &[Type], _: &dyn express::types::InterpreterContext) {
-        self.acc = args[0].clone().into();
+    fn init(args: &[Type], _: &dyn express::types::InterpreterContext) -> Self {
+        Self {
+            acc: args[0].clone().into(),
+        }
     }
 
     fn name(&self) -> &'static str {
