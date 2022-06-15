@@ -2,4 +2,8 @@ pub use lang;
 pub use types;
 pub use xmacro;
 
-pub mod prelude {}
+/// Holds basic public API to the compiler and useful type declaraions
+pub mod prelude {
+    pub use types::{Callable, CallableType, Function, InterpreterContext, Type};
+    pub use xmacro::{runtime_callable, use_library};
+}

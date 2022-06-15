@@ -1,7 +1,5 @@
 #![allow(dead_code)]
-extern crate express;
-use express::types::{Callable, InterpreterContext, Type};
-use express::xmacro::runtime_callable;
+use express::prelude::*;
 
 /// Clalculates logarithm of a __value__ with by a given __base__
 #[runtime_callable(pure)]

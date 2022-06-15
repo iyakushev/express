@@ -1,7 +1,4 @@
-use express::{
-    types::{Callable, InterpreterContext, Type},
-    xmacro::runtime_callable,
-};
+use express::prelude::*;
 
 /// This is how **you define a constructor**:
 /// Note that it is also handy to get a gist of function signature.
@@ -19,12 +16,6 @@ pub struct Accumulate {
 }
 
 impl Callable for Accumulate {
-    fn init(&self, args: &[Type], _: &dyn express::types::InterpreterContext) -> Self {
-        Self {
-            acc: args[0].clone().into(),
-        }
-    }
-
     fn name(&self) -> &'static str {
         "acc"
     }

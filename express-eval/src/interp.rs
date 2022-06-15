@@ -2,7 +2,7 @@ use crate::ctx::Context;
 use crate::formula::{Formula, SharedFormula};
 use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
-use express::types::{InterpreterContext, Type};
+use express::types::{CallableType, InterpreterContext, Type};
 use express::xmacro::use_library;
 use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
@@ -259,7 +259,7 @@ impl Interpreter {
                 expr
             }
             IRNode::Function(ref func, ref mut args) => {
-                if func.is_pure() {
+                if func.can_be_optimized() {
                     return expr;
                 }
                 // TODO: add the same optimization for arguments
@@ -330,9 +330,9 @@ impl Interpreter {
             // NOTE(iy): smelly part. We have to clone values.
             // Its ok for Number/TimeStep/Collection(it only clones ptr) but might be bad for
             // String.
-            IRNode::Value(n) => Some(expr.clone()),
+            IRNode::Value(_) => Some(expr.clone()),
             IRNode::Function(fn_obj, args) => {
-                if !fn_obj.is_pure() {
+                if !fn_obj.can_be_optimized() {
                     return None;
                 }
 
@@ -479,7 +479,6 @@ impl Visit<&IRNode> for Interpreter {
 #[cfg(test)]
 mod test {
 
-    use std::borrow;
     use std::rc::Rc;
 
     use super::*;

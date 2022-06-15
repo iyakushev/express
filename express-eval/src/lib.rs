@@ -7,8 +7,7 @@ pub mod ir;
 #[cfg(test)]
 mod test {
     use crate::ctx::Context;
-    use express::types::{Callable, InterpreterContext, Type};
-    use express::xmacro::{runtime_callable, use_library};
+    use express::prelude::*;
     use express_std;
 
     #[runtime_callable]

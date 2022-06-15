@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 extern crate xmacro;
-use types::{Callable, InterpreterContext, Type};
+use types::{Callable, CallableType, Type};
 use xmacro::{resolve_name, runtime_callable};
 
 mod express {

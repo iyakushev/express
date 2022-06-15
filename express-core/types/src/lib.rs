@@ -86,20 +86,30 @@ impl Function {
     }
 
     /// Uses interior mutability pattern to dispatch a fn call
+    #[inline(always)]
     pub fn call(&self, args: &[Type]) -> Option<Type> {
         self.inner.borrow_mut().call(args)
     }
 
+    #[inline(always)]
     pub fn name(&self) -> &'static str {
         let name = self.inner.borrow().name().clone();
         name
     }
 
+    #[inline(always)]
     pub fn argcnt(&self) -> usize {
         self.inner.borrow().argcnt()
     }
 
-    pub fn is_pure(&self) -> CallableType {
+    /// Returns *true* if a function is `pure` | `const`
+    #[inline(always)]
+    pub fn can_be_optimized(&self) -> bool {
+        !matches!(self.of_type(), CallableType::Stateful)
+    }
+
+    #[inline(always)]
+    pub fn of_type(&self) -> CallableType {
         self.inner.borrow().of_type()
     }
 }
@@ -132,12 +142,6 @@ impl PartialEq for Function {
 /// since they access arguments with `get_unchecked(pos)`.
 /// The arg count check is performed during AST creation.
 pub trait Callable: CallableWrapper {
-    /// Execuded once before the main loop with call
-    /// Allows struct to initialize its internal state.
-    fn init(&self, args: &[Type], ctx: &dyn InterpreterContext) -> Self
-    where
-        Self: Sized;
-
     // One day we will get Trait const fn
     /// Returns the name of an object.
     fn name(&self) -> &'static str;
@@ -160,7 +164,10 @@ pub trait CallableWrapper {
     fn wrap_in_refcell(self: Box<Self>) -> Rc<RefCell<dyn Callable>>;
 }
 
-impl<T: Callable + 'static> CallableWrapper for T {
+impl<T> CallableWrapper for T
+where
+    T: Callable + 'static,
+{
     fn wrap_in_refcell(self: Box<Self>) -> Rc<RefCell<dyn Callable>> {
         Rc::new(RefCell::new(*self))
     }

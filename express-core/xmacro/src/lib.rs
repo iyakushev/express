@@ -1,22 +1,22 @@
 mod uselib;
 use proc_macro::TokenStream;
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::TokenStream as TStream;
+use quote::{format_ident, quote};
 use syn::{parse_macro_input, spanned::Spanned, FnArg, Pat, ReturnType};
-use types::CallableType;
 use uselib::Library;
 
-fn parse_flag_attr(attr: TokenStream) -> Result<CallableType, syn::Error> {
+fn parse_flag_attr(attr: TokenStream) -> Result<TStream, syn::Error> {
     match syn::parse::<syn::Ident>(attr) {
         Ok(tt) => match tt.to_string().as_str() {
-            "pure" => Ok(CallableType::Pure),
-            "const" => Ok(CallableType::Const),
-            "" => Ok(CallableType::Stateful),
+            "pure" => Ok(quote!(CallableType::Pure)),
+            "const" => Ok(quote!(CallableType::Const)),
+            "" => Ok(quote!(CallableType::Stateful)),
             _ => Err(syn::Error::new(
                 tt.span(),
                 format!("Macro accepts only: [pure, const]"),
             )),
         },
-        Err(_) => Ok(CallableType::Stateful),
+        Err(_) => Ok(quote!(CallableType::Stateful)),
     }
 }
 
@@ -104,7 +104,7 @@ pub fn runtime_callable(attr: TokenStream, item: TokenStream) -> TokenStream {
     parse_function(item, mode)
 }
 
-fn parse_function(item: TokenStream, oftype: CallableType) -> TokenStream {
+fn parse_function(item: TokenStream, expr_type: TStream) -> TokenStream {
     let function: syn::ItemFn = syn::parse_macro_input!(item);
     let mut arguments: Vec<_> = Vec::new();
     let mut argcnt: usize = 0;
@@ -149,6 +149,7 @@ fn parse_function(item: TokenStream, oftype: CallableType) -> TokenStream {
     };
     let stmts = function.block.stmts.clone();
 
+    // This allows macro to handle returns like Option<T> and T
     let call_ret_stmt = if let Some(_) = result_type {
         quote! { Some( {#( #stmts )*}?.into() ) }
     } else {
@@ -171,8 +172,6 @@ fn parse_function(item: TokenStream, oftype: CallableType) -> TokenStream {
                 #call_ret_stmt
             }
 
-            fn init(&self, args: &[Type], ctx: &dyn InterpreterContext) -> Self { Self {} }
-
             #[inline(always)]
             fn name(&self) -> &'static str {
                 stringify!(#fn_src_name)
@@ -185,7 +184,7 @@ fn parse_function(item: TokenStream, oftype: CallableType) -> TokenStream {
 
             #[inline(always)]
             fn of_type(&self) -> CallableType {
-                #(oftype)
+                #expr_type
             }
 
         }

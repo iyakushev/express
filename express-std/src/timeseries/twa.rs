@@ -1,8 +1,6 @@
 use super::TimeSeries;
-use express::{
-    types::{Callable, InterpreterContext, Type},
-    xmacro::runtime_callable,
-};
+use express::prelude::*;
+
 // FIXME(iy): Doc formula
 /**
 # Time Weighted Average (TWA)

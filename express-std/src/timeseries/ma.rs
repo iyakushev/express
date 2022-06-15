@@ -1,6 +1,5 @@
 use super::TimeSeries;
-use express::types::{Callable, InterpreterContext, Type};
-use express::xmacro::runtime_callable;
+use express::prelude::*;
 
 /**
 # Simple Moving Average (SMA/MA) trait

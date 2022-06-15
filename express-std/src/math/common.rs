@@ -1,5 +1,4 @@
-use express::types::{Callable, InterpreterContext, Type};
-use express::xmacro::runtime_callable;
+use express::prelude::*;
 
 #[runtime_callable(pure)]
 fn max(lhs: f64, rhs: f64) -> f64 {

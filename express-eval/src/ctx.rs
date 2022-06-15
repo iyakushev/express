@@ -118,7 +118,7 @@ impl Visit<Expression> for Context {
                 // init_object(*f, args.as_slice());
 
                 // Try to simplify fn call
-                if f.is_pure() {
+                if f.can_be_optimized() {
                     return reduce_ast_node(f.clone(), arguments);
                 } else {
                     return Ok(IRNode::Function(f.clone(), arguments));
@@ -179,8 +179,7 @@ mod test {
     use super::*;
     use express::lang::ast::Operation;
     use express::lang::parser::parse_expression;
-    use express::types::{Callable, Function};
-    use express::xmacro::runtime_callable;
+    use express::prelude::*;
 
     #[runtime_callable]
     fn add_answer(val: f64) -> Option<f64> {
