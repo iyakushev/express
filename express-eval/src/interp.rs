@@ -2,7 +2,7 @@ use crate::ctx::Context;
 use crate::formula::{Formula, SharedFormula};
 use crate::ir::{FormulaLink, IRNode};
 use express::lang::ast::Visit;
-use express::types::{CallableType, InterpreterContext, Type};
+use express::types::{InterpreterContext, Type};
 use express::xmacro::use_library;
 use std::cell::Ref;
 use std::collections::{BTreeMap, BTreeSet};
@@ -172,7 +172,6 @@ impl Interpreter {
             let fnode = self.node_map.get(&name).unwrap().clone();
             let mut fnode_inner = fnode.borrow_mut();
 
-            println!("BEFORE: {:?}", fnode_inner.ast);
             // This would ensure that previous formula functions gets referenced
             self.manage_references(&mut fnode_inner, &mut unused)?;
 
@@ -259,9 +258,6 @@ impl Interpreter {
                 expr
             }
             IRNode::Function(ref func, ref mut args) => {
-                if func.can_be_optimized() {
-                    return expr;
-                }
                 // TODO: add the same optimization for arguments
                 for arg in args.iter_mut() {
                     *arg = self._find_dup_fns(unused, arg.clone());
@@ -317,9 +313,7 @@ impl Interpreter {
     fn opt_const_eval(&self) {
         for (_, f) in &self.node_map {
             let mut formula = f.borrow_mut();
-            println!("BEFORE: {:?}", formula.ast);
             if let Some(val) = self._opt_const_eval_walk(&formula.ast) {
-                println!("OPTIMIZED: {val:?}");
                 formula.ast = val;
             }
         }
@@ -482,8 +476,7 @@ mod test {
     use std::rc::Rc;
 
     use super::*;
-    use express::types::{Callable, Function, InterpreterContext, Type};
-    use express::xmacro::{resolve_name, runtime_callable};
+    use express::prelude::*;
 
     #[runtime_callable]
     fn add(x: f64, y: f64) -> Option<f64> {
@@ -672,18 +665,12 @@ mod test {
         ctx.register_function("add", Box::new(__add));
         let intrp = Interpreter::new(&[("f1", "acc(0, 2*2)")], ctx).unwrap();
         let f = intrp.root_nodes[0].clone();
-        let r0 = intrp.eval(f.borrow()).unwrap();
-        let r1 = intrp.eval(f.borrow()).unwrap();
-        let r2 = intrp.eval(f.borrow()).unwrap();
-        println!("\n\nCAPTURE");
-        println!("{:?}", f.borrow());
-        println!("{}", f.borrow().ast);
-        println!("{}", r0);
-        println!("{}", r1);
-        println!("{}", r2);
+        let r0: f64 = intrp.eval(f.borrow()).unwrap().into();
+        let r1: f64 = intrp.eval(f.borrow()).unwrap().into();
+        let r2: f64 = intrp.eval(f.borrow()).unwrap().into();
 
-        // assert_eq!(r0, 4.0);
-        // assert_eq!(r1, 8.0);
-        // assert_eq!(r2, 12.0);
+        assert_eq!(r0, 4.0);
+        assert_eq!(r1, 8.0);
+        assert_eq!(r2, 12.0);
     }
 }

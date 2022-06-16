@@ -47,11 +47,12 @@ impl InterpreterContext for Context {
     }
 }
 
-/// Simplifies ast and produces new IRNode
-fn reduce_ast_node(f: Function, arguments: Vec<IRNode>) -> Result<IRNode, String> {
-    if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) {
+/// Calls functions at compiletime
+fn comptime_call_func(f: Function, arguments: Vec<IRNode>) -> Result<IRNode, String> {
+    if arguments.iter().any(|a| !matches!(a, IRNode::Value(_))) && !f.is_const() {
         return Ok(IRNode::Function(f.clone(), arguments));
     } else {
+        let arg_clone = arguments.clone();
         let values: Box<[Type]> = arguments
             .into_iter()
             .map(|arg| match arg {
@@ -60,17 +61,22 @@ fn reduce_ast_node(f: Function, arguments: Vec<IRNode>) -> Result<IRNode, String
             })
             .collect();
         if let Some(result) = f.call(&*values) {
-            return Ok(IRNode::Value(result));
+            let result = match result {
+                Type::Function(newf) => IRNode::Function(newf, arg_clone),
+                _ => IRNode::Value(result),
+            };
+            return Ok(result);
         }
         return Err(format!("Pure function with const arguments returned None"));
     }
 }
-
+// NOTE(iy): MAIN COMPILE TIME EVALUATION LOOP
 /// Introducing dyn InterpreterContext will degrade performance
 /// by inderection (vtable). While This visit is not important
 /// later evaluation will suffer a perf hit since they would do
 /// fn lookups through a vtable call.
-
+/// Also, this Visit can be considered as a 1st step in compile-time.
+/// Here functions and their arguments are evaluated/simplified.
 impl Visit<Expression> for Context {
     type Returns = Result<IRNode, String>;
 
@@ -119,7 +125,8 @@ impl Visit<Expression> for Context {
 
                 // Try to simplify fn call
                 if f.can_be_optimized() {
-                    return reduce_ast_node(f.clone(), arguments);
+                    let node = comptime_call_func(f.clone(), arguments);
+                    return node;
                 } else {
                     return Ok(IRNode::Function(f.clone(), arguments));
                 }

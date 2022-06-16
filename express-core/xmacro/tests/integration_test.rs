@@ -8,8 +8,13 @@ mod express {
 }
 
 #[runtime_callable(pure)]
-fn foo(input: f64) -> Option<f64> {
-    Some(input * 2.0 + 2.0)
+fn foo(input: f64) -> f64 {
+    input * 2.0 + 2.0
+}
+
+#[runtime_callable(const)]
+fn bar(input: f64) -> f64 {
+    input * 2.0 + 2.0
 }
 
 #[cfg(test)]

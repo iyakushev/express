@@ -102,6 +102,11 @@ impl Function {
         self.inner.borrow().argcnt()
     }
 
+    #[inline(always)]
+    pub fn is_const(&self) -> bool {
+        matches!(self.of_type(), CallableType::Const)
+    }
+
     /// Returns *true* if a function is `pure` | `const`
     #[inline(always)]
     pub fn can_be_optimized(&self) -> bool {
@@ -116,19 +121,19 @@ impl Function {
 
 impl Display for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "fn {}(...)", self.name())
+        write!(f, "raw fn {}(...)", self.name())
     }
 }
 
 impl Debug for Function {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "fn {}(...)", self.name())
+        write!(f, "raw fn {}(...)", self.name())
     }
 }
 
 impl PartialEq for Function {
     fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.inner, &other.inner) && self.name() == other.name()
+        self.name() == other.name()
     }
 }
 
@@ -177,6 +182,7 @@ where
 /// * Stateful - functions that may carry inner mutable state. They are the reason `call(...)` accepts `&mut self`.
 /// * Const - functions that will be evaluated at _"compile time"_. No mater what.
 /// * Pure - trivial functions without side effects that may be inlined at _"compile time"_
+#[derive(Debug)]
 pub enum CallableType {
     Stateful,
     Const,

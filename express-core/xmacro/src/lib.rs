@@ -9,11 +9,11 @@ fn parse_flag_attr(attr: TokenStream) -> Result<TStream, syn::Error> {
     match syn::parse::<syn::Ident>(attr) {
         Ok(tt) => match tt.to_string().as_str() {
             "pure" => Ok(quote!(CallableType::Pure)),
-            "const" => Ok(quote!(CallableType::Const)),
+            "constant" => Ok(quote!(CallableType::Const)),
             "" => Ok(quote!(CallableType::Stateful)),
             _ => Err(syn::Error::new(
                 tt.span(),
-                format!("Macro accepts only: [pure, const]"),
+                format!("Macro accepts only: [pure, constant]"),
             )),
         },
         Err(_) => Ok(quote!(CallableType::Stateful)),

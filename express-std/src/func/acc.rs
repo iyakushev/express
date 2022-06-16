@@ -5,7 +5,7 @@ use express::prelude::*;
 /// This signature will be employed in the real `call` method as `args: &[Type]`.
 /// You can think of it as currying. But on each call you recieve all arguments.
 /// Like yeah, currying in compile time is object construction. How. Cool. Is. That?!
-#[runtime_callable(pure)]
+#[runtime_callable(constant)]
 pub fn acc(init: f64, _f: &Type) -> Accumulate {
     Accumulate { acc: init }
 }
@@ -17,7 +17,7 @@ pub struct Accumulate {
 
 impl Callable for Accumulate {
     fn name(&self) -> &'static str {
-        "acc"
+        "Accum"
     }
 
     fn call(&mut self, args: &[Type]) -> Option<Type> {
