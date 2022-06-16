@@ -1,46 +1,49 @@
-use express::types::{Callable, Function, InterpreterContext, Type};
+use express::prelude::*;
 
-struct Reduce {
-    state: Type,
-    func: Function,
+#[runtime_callable(constant)]
+fn reduce(state: f64, func: Function) -> Reduce {
+    Reduce { state, func }
 }
 
+struct Reduce {
+    state: f64,
+    func: Function,
+}
+// fn signature: reduce(0, fn, arg*)
+// 1. f64 -- initial state
+// 2. expr -- an expression which will be called
+// 3. arg -- arguments to the expr(2)
+// fn init(args: &[Type], ctx: &dyn InterpreterContext) {
+//   self.state = args[0].clone().into();
+//   let fname: String = args[1].clone().into();
+//   if let Some(f) = ctx.find_function(fname.as_str()) {
+//       self.func = f.clone();
+//   } else {
+//       panic!("Failed to find function '{fname}' in the context");
+//   }
+//}
 // reduce(0, add, 1, 1)
 
 impl Callable for Reduce {
-    // fn signature: reduce(0, fn, arg*)
-    // 1. f64 -- initial state
-    // 2. expr -- an expression which will be called
-    // 3. arg -- arguments to the expr(2)
-    fn init(&mut self, args: &[Type], ctx: &dyn InterpreterContext) {
-        self.state = args[0].clone();
-        let fname: String = args[1].clone().into();
-        if let Some(f) = ctx.find_function(fname.as_str()) {
-            self.func = f.clone();
-        } else {
-            panic!("Failed to find function '{fname}' in the context");
-        }
-    }
-
     #[inline]
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "reduce"
     }
 
     #[inline]
     fn call(&mut self, args: &[Type]) -> Option<Type> {
         let args = &args[2..];
-        let mut f = self.func.borrow_mut();
-        if args.len() != f.argcnt() {
+        if args.len() != self.func.argcnt() {
             panic!(
                 "Function {} recieved {} arguments, but expects {}",
-                f.name(),
+                self.func.name(),
                 args.len(),
-                f.argcnt()
+                self.func.argcnt()
             );
         }
-        self.state = f.call(&args[2..])?;
-        Some(self.state.clone())
+        let state = self.func.call(&args[2..])?;
+        self.state = state.clone().into();
+        Some(state)
     }
 
     #[inline]

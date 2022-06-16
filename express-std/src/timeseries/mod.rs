@@ -1,5 +1,6 @@
-pub use express::types::TimeStep;
 use std::sync::Arc;
+
+pub use express::types::TimeStep;
 
 /**
 It accumulates ticks over time into the inner ring buffer

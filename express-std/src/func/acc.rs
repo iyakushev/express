@@ -16,10 +16,12 @@ pub struct Accumulate {
 }
 
 impl Callable for Accumulate {
+    #[inline(always)]
     fn name(&self) -> &'static str {
         "Accum"
     }
 
+    #[inline]
     fn call(&mut self, args: &[Type]) -> Option<Type> {
         let arg = args[1].clone();
         match arg {
@@ -30,6 +32,7 @@ impl Callable for Accumulate {
         Some(self.acc.into())
     }
 
+    #[inline(always)]
     fn argcnt(&self) -> usize {
         2
     }
