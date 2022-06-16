@@ -1,9 +1,12 @@
 use express::prelude::*;
 
-#[runtime_callable(constant)]
-fn reduce(state: f64, func: Function) -> Reduce {
-    Reduce { state, func }
-}
+// TODO: Need to support variadic arguments
+// Need to support implicit ctx lookup
+
+// #[runtime_callable(constant)]
+// fn reduce(state: f64, func: String) -> Reduce {
+//     Reduce { state, func }
+// }
 
 struct Reduce {
     state: f64,
