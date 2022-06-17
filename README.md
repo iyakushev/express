@@ -21,7 +21,7 @@ fn foo(formulas: &[NamedExpression]) -> Result<Interpreter> {
 }
 ```
 
-### Neet features
+### Nice features
 
 * Compile-time function evaluation (function type: `constant` | `pure`);
 * Call duplication optimization (removes repeated function calls with same arguments);
