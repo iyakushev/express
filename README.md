@@ -21,6 +21,11 @@ fn foo(formulas: &[NamedExpression]) -> Result<Interpreter> {
 }
 ```
 
+### Neet features
+
+* Compile-time function evaluation (function type: `constant` | `pure`);
+* Call duplication optimization (removes repeated function calls with same arguments);
+* Reference result inline;
 
 ### Custom code
 
@@ -30,8 +35,8 @@ Optionally it accepts attribute `pure` which denotes given function as... well..
 // some::crate::path.rs
 #[inline]
 #[runtime_callable(pure)]
-fn add_answer(lhs: f64) -> Option<f64> {
-    Some(lhs + 42.0)
+fn add_answer(lhs: f64) -> f64 {
+    lhs + 42.0
 }
 // ... other code ...
 
